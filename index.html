@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Cellipse cx=%2716%27 cy=%2715%27 rx=%2711%27 ry=%2713%27 fill=%27%23ff2d55%27 stroke=%27%231c1b2b%27 stroke-width=%272%27/%3E%3C/svg%3E">
+<title>Tinta Neles! — guerra de bexigas de tinta</title>
+<script type="importmap">
+{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }
+</script>
+<style>
+  :root {
+    --ink: #1c1b2b;
+    --paper: #fffdf7;
+    --c1: #ff2d55; --c2: #ff8a00; --c3: #ffd60a; --c4: #34c759;
+    --c5: #00c7be; --c6: #0a84ff; --c7: #bf5af2; --c8: #ff5fc8;
+    --font: ui-rounded, "Baloo 2", "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #a9dcff; font-family: var(--font); color: var(--ink); }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; user-select: none; }
+  .card {
+    background: var(--paper); border: 3px solid var(--ink); border-radius: 16px;
+    box-shadow: 4px 5px 0 var(--ink); font-weight: 900;
+  }
+  #timer { position: absolute; top: 16px; left: 50%; transform: translateX(-50%) rotate(-1.5deg); padding: 4px 20px; font-size: 30px; font-variant-numeric: tabular-nums; }
+  #timer.low { background: var(--c1); color: #fff; }
+
+  #board { position: absolute; top: 16px; right: 16px; padding: 10px 12px; min-width: 210px; font-size: 15px; }
+  #board h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
+  #board ol { list-style: none; margin: 0; padding: 0; }
+  #board li { display: flex; align-items: center; gap: 8px; padding: 2px 6px; border-radius: 8px; }
+  #board li.me { background: var(--ink); color: var(--paper); }
+  #board li.out { opacity: .45; }
+  #board .dot { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--ink); flex: none; }
+  #board li.me .dot { border-color: var(--paper); }
+  #board .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+  #board .pt { font-variant-numeric: tabular-nums; }
+
+  #feed { position: absolute; top: 16px; left: 16px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  #feed div { background: rgba(28,27,43,.82); color: #fff; padding: 5px 12px; border-radius: 999px; font-weight: 800; font-size: 14px; animation: feed 5s forwards; }
+  #feed b { font-weight: 900; }
+  @keyframes feed { 0% { opacity: 0; transform: translateX(-20px); } 6% { opacity: 1; transform: none; } 85% { opacity: 1; } 100% { opacity: 0; } }
+
+  #shirts { position: absolute; left: 16px; bottom: 16px; padding: 10px 14px 6px; display: flex; gap: 8px; align-items: center; transform: rotate(-1.5deg); }
+  #shirts svg { width: 46px; height: 40px; }
+  #shirts svg path { fill: #fff; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; transition: fill .15s; }
+  #shirts small { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+
+  #bag { position: absolute; right: 16px; bottom: 16px; padding: 8px 16px 10px; text-align: right; transform: rotate(1.5deg); }
+  #bag small { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+  #bagCount { font-size: 44px; line-height: 1; font-variant-numeric: tabular-nums; }
+  #bagCount span { font-size: 20px; opacity: .5; }
+  #bag.empty #bagCount { color: var(--c1); }
+  #bagNext { display: flex; gap: 5px; justify-content: flex-end; align-items: center; margin-top: 6px; height: 26px; }
+  #bagNext i { width: 14px; height: 17px; border-radius: 50%; border: 2px solid var(--ink); display: block; }
+  #bagNext i:first-child { width: 21px; height: 25px; }
+
+  #cross { position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px; }
+  #cross .charge { fill: none; stroke: var(--c3); stroke-width: 5; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 36px 36px; }
+  #cross .plus { fill: none; stroke: #000; stroke-width: 3; stroke-linecap: round; }
+  #cross .halo { fill: none; stroke: rgba(255,255,255,.55); stroke-width: 5; stroke-linecap: round; }
+  #hitmark { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; opacity: 0; }
+  #hitmark.on { animation: hm .35s; }
+  #hitmark path { stroke: #fff; stroke-width: 4; stroke-linecap: round; }
+  @keyframes hm { 0% { opacity: 1; transform: scale(1.5); } 100% { opacity: 0; transform: scale(1); } }
+
+  #msg { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); padding: 8px 20px; font-size: 20px; white-space: nowrap; }
+  #dead { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(28,27,43,.35); }
+  #dead div { padding: 18px 34px; font-size: 26px; text-align: center; transform: rotate(-2deg); }
+  #dead small { display: block; font-size: 16px; opacity: .7; margin-top: 4px; }
+
+  #splats { position: absolute; inset: 0; overflow: hidden; }
+  #splats div { position: absolute; border-radius: 47% 53% 61% 39% / 44% 58% 42% 56%; animation: drip 3s forwards cubic-bezier(.3,0,.7,1); }
+  @keyframes drip { 0% { opacity: .92; transform: scale(.3); } 6% { transform: scale(1); } 60% { opacity: .85; } 100% { opacity: 0; transform: translateY(70px) scale(1,1.15); } }
+
+  /* ---------- telas ---------- */
+  .screen { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(28,27,43,.45); backdrop-filter: blur(3px); padding: 16px; overflow: auto; }
+  .panel { padding: 26px 34px 28px; width: min(560px, 100%); text-align: center; }
+  h1 { margin: 0; font-size: clamp(44px, 9vw, 76px); line-height: .95; letter-spacing: -.02em; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; transform: rotate(-3deg); text-shadow: 5px 6px 0 var(--ink); }
+  h1 span:nth-child(8n+1) { color: var(--c1); } h1 span:nth-child(8n+2) { color: var(--c2); }
+  h1 span:nth-child(8n+3) { color: var(--c3); } h1 span:nth-child(8n+4) { color: var(--c4); }
+  h1 span:nth-child(8n+5) { color: var(--c5); } h1 span:nth-child(8n+6) { color: var(--c6); }
+  h1 span:nth-child(8n+7) { color: var(--c7); } h1 span:nth-child(8n+8) { color: var(--c8); }
+  .tag { margin: 16px 0 20px; font-weight: 700; font-size: 16px; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: left; margin-bottom: 18px; }
+  .opts label { font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; display: grid; gap: 4px; }
+  .opts input, .opts select { font: inherit; font-size: 16px; font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 7px 9px; width: 100%; }
+  button.go { font: inherit; font-weight: 900; font-size: 24px; color: var(--ink); background: var(--c3); border: 3px solid var(--ink); border-radius: 14px; padding: 10px 40px; box-shadow: 4px 5px 0 var(--ink); cursor: pointer; }
+  button.go:hover { background: var(--c4); }
+  button.go.alt { background: #fff; font-size: 18px; padding: 10px 22px; }
+  button.go.alt:hover { background: var(--c5); }
+  button.go:disabled { opacity: .55; cursor: default; background: #ddd; }
+  .btns { display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .status { min-height: 20px; margin: 12px 0 0; font-size: 14px; font-weight: 800; color: #b3122f; }
+  button.go:active { transform: translate(3px, 4px); box-shadow: 1px 1px 0 var(--ink); }
+  :focus-visible { outline: 3px solid var(--c6); outline-offset: 2px; }
+  .keys { margin: 20px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; text-align: left; font-size: 14px; font-weight: 700; }
+  kbd { font: inherit; font-weight: 900; background: var(--ink); color: var(--paper); border-radius: 6px; padding: 1px 7px; margin-right: 4px; }
+  .rules { margin: 14px 0 0; font-size: 14px; font-weight: 700; opacity: .8; }
+  table.rank { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-weight: 800; font-size: 16px; }
+  table.rank th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; opacity: .6; padding: 4px 8px; }
+  table.rank td { padding: 5px 8px; font-variant-numeric: tabular-nums; }
+  table.rank td:nth-child(2) { text-align: left; }
+  table.rank tr.me td { background: var(--ink); color: var(--paper); }
+  table.rank tr.me td:first-child { border-radius: 10px 0 0 10px; } table.rank tr.me td:last-child { border-radius: 0 10px 10px 0; }
+  h2 { margin: 0; font-size: 34px; }
+  @media (max-width: 520px) { .opts, .keys { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="splats"></div>
+  <div id="feed"></div>
+  <div id="timer" class="card">4:00</div>
+  <div id="board" class="card"><h3>Placar</h3><ol id="boardList"></ol></div>
+
+  <svg id="cross" viewBox="0 0 72 72">
+    <circle id="charge" class="charge" cx="36" cy="36" r="24" stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
+    <path class="halo" d="M36 22v9M36 41v9M22 36h9M41 36h9"/>
+    <path class="plus" d="M36 22v9M36 41v9M22 36h9M41 36h9"/>
+  </svg>
+  <svg id="hitmark" viewBox="0 0 44 44"><path d="M6 6l9 9M38 6l-9 9M6 38l9-9M38 38l-9-9"/></svg>
+
+  <div id="msg" class="card hidden"></div>
+  <div id="dead" class="hidden"><div class="card"><span id="deadText"></span><small id="deadSub"></small></div></div>
+
+  <div id="shirts" class="card">
+    <div><small>Roupa limpa</small>
+      <span id="shirtRow"></span>
+    </div>
+  </div>
+  <div id="bag" class="card">
+    <small>Sacola</small>
+    <div id="bagCount">20<span>/20</span></div>
+    <div id="bagNext"></div>
+  </div>
+</div>
+
+<div id="menu" class="screen">
+  <div class="panel card">
+    <h1 id="title" aria-label="Tinta Neles!"></h1>
+    <p class="tag">Guerra de bexigas de tinta. Todos contra todos.</p>
+    <form id="form">
+      <div class="opts">
+        <label>Seu nome <input id="nick" maxlength="12" value="Você" autocomplete="off"></label>
+        <label>Bots (treino)
+          <select id="bots"><option value="3">3 bots</option><option value="5">5 bots</option><option value="7" selected>7 bots</option></select>
+        </label>
+        <label>Dificuldade (treino)
+          <select id="skill"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select>
+        </label>
+      </div>
+      <div class="btns">
+        <button class="go" type="button" id="online">Jogar online</button>
+        <button class="go alt" type="submit">Treinar com bots</button>
+      </div>
+      <p id="netStatus" class="status" role="status"></p>
+    </form>
+    <ul class="keys">
+      <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</li>
+      <li><kbd>Mouse</kbd> mirar</li>
+      <li><kbd>Clique</kbd> segure para dar força, solte para lançar</li>
+      <li><kbd>Espaço</kbd> pular</li>
+      <li><kbd>Esc</kbd> pausar</li>
+    </ul>
+    <p class="rules">Cada um sai com 20 bexigas na sacola. Acabou? Pegue uma sacola extra no mapa (feixe amarelo).
+      Levou tinta? Uma roupa limpa (feixe azul) devolve uma vida.
+      Acerto vale 1 ponto; no terceiro, o adversário é eliminado e você leva +2.</p>
+  </div>
+</div>
+
+<div id="pause" class="screen hidden">
+  <div class="panel card">
+    <h2>Pausado</h2>
+    <p class="tag" id="pauseTag">Clique para voltar à guerra.</p>
+    <button class="go" id="resume" type="button">Continuar</button>
+    <p class="rules"><a href="#" id="quit" style="color:inherit">Sair para o menu</a></p>
+  </div>
+</div>
+
+<div id="end" class="screen hidden">
+  <div class="panel card">
+    <h2 id="endTitle">Fim de jogo</h2>
+    <table class="rank"><thead><tr><th>#</th><th style="text-align:left">Jogador</th><th>Pontos</th><th>Acertos</th><th>Eliminou</th><th>Caiu</th></tr></thead><tbody id="rankBody"></tbody></table>
+    <button class="go" id="again" type="button">Jogar de novo</button>
+    <p class="rules"><a href="#" id="endQuit" style="color:inherit">Sair para o menu</a></p>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

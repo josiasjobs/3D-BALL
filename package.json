@@ -1,0 +1,15 @@
+{
+  "name": "tinta-neles",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Guerra de bexigas de tinta em primeira pessoa (Three.js)",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "three": "^0.187.0",
+    "ws": "^8.23.0"
+  }
+}

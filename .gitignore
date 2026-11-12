@@ -1,0 +1,7 @@
+node_modules/
+.playwright-cli/
+
+# Pacotes de origem (grandes); o jogo usa só as cópias em assets/
+/Universal Animation Library/
+/KayKit 1/
+/KayKit 2/
