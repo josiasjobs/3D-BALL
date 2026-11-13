@@ -16,6 +16,7 @@ const num = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) :
 export class Room {
   constructor({ slots = 8, matchTime = CFG.matchTime, skill = 'normal' } = {}) {
     this.matchTime = matchTime; this.skill = skill;
+    this.useBots = true; // quem abre a sala (primeiro a entrar) escolhe
     this.slots = [];
     for (let i = 0; i < slots; i++) this.slots.push({ name: '', color: PLAYER_COLORS[i % PLAYER_COLORS.length], conn: null });
     for (const s of this.slots) s.name = this.freeBotName();
@@ -32,7 +33,10 @@ export class Room {
   }
 
   roster() {
-    return { players: this.slots.map((s) => ({ name: s.name, color: s.color, isBot: !s.conn })), matchTime: this.matchTime };
+    return {
+      players: this.slots.map((s) => ({ name: s.name, color: s.color, isBot: !s.conn, out: !s.conn && !this.useBots })),
+      matchTime: this.matchTime, bots: this.useBots,
+    };
   }
 
   broadcast(obj) {
@@ -45,8 +49,10 @@ export class Room {
     if (!this.nav) this.nav = new Nav(this.game.map);
     this.bots = []; this.queues = []; this.last = []; this.cmds = [];
     this.slots.forEach((s, id) => {
-      this.game.addPlayer({ name: s.name, isBot: !s.conn, color: s.color });
-      this.bots[id] = s.conn ? null : new BotBrain(this.game, this.nav, id, this.skill);
+      const p = this.game.addPlayer({ name: s.name, isBot: !s.conn, color: s.color });
+      const bot = !s.conn && this.useBots;
+      if (!s.conn && !this.useBots) this.game.setOut(p, true);
+      this.bots[id] = bot ? new BotBrain(this.game, this.nav, id, this.skill) : null;
       this.queues[id] = []; this.last[id] = EMPTY;
     });
     this.phase = 'playing'; this.wait = 0; this.ticks = 0; this.pendingEvents = [];
@@ -54,14 +60,19 @@ export class Room {
   }
 
   // Jogador entra no lugar de um bot. Devolve o id da vaga, ou -1 se a sala está cheia.
-  join(conn, name) {
+  // Quem entra numa sala vazia decide se ela tem bots; a escolha vale até a sala esvaziar.
+  join(conn, name, { bots = true } = {}) {
     const id = this.slots.findIndex((s) => !s.conn);
     if (id < 0) return -1;
+    if (this.humans === 0) {
+      this.useBots = !!bots;
+      this.newMatch(); // sala estava parada: começa uma partida nova já com a escolha
+    }
     const slot = this.slots[id];
     slot.conn = conn;
     slot.name = String(name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12) || `Jogador ${id + 1}`;
     const p = this.game.players[id];
-    p.name = slot.name; p.isBot = false;
+    p.name = slot.name; p.isBot = false; p.out = false;
     p.score = p.hits = p.kos = p.deaths = p.thrown = 0;
     this.bots[id] = null; this.queues[id] = []; this.last[id] = EMPTY;
     if (!this.game.ended) this.game.respawn(p);
@@ -78,7 +89,8 @@ export class Room {
     slot.name = this.freeBotName();
     const p = this.game.players[id];
     p.name = slot.name; p.isBot = true;
-    this.bots[id] = new BotBrain(this.game, this.nav, id, this.skill);
+    if (this.useBots) this.bots[id] = new BotBrain(this.game, this.nav, id, this.skill);
+    else this.game.setOut(p, true);
     this.broadcast({ t: 'roster', ...this.roster() });
   }
 
@@ -104,6 +116,7 @@ export class Room {
     const g = this.game;
     for (let id = 0; id < this.slots.length; id++) {
       if (this.bots[id]) { this.cmds[id] = this.bots[id].think(TICK); continue; }
+      if (!this.slots[id].conn) { this.cmds[id] = EMPTY; continue; } // vaga vazia
       const q = this.queues[id];
       if (q.length > 8) q.splice(0, q.length - 2); // cliente adiantado: descarta o excesso
       if (q.length) this.last[id] = q.shift();
@@ -123,7 +136,7 @@ export class Room {
       time: Math.round(g.timeLeft * 10) / 10, ended: g.ended, wait: g.ended ? INTERMISSION : 0,
       p: g.players.map((p) => [
         r2(p.x), r2(p.y), r2(p.z), r2(p.vx), r2(p.vz), r2(p.yaw), r2(p.pitch),
-        (p.alive ? 1 : 0) | (p.onGround ? 2 : 0) | (p.charging ? 4 : 0) | (p.invuln > 0 ? 8 : 0),
+        (p.alive ? 1 : 0) | (p.onGround ? 2 : 0) | (p.charging ? 4 : 0) | (p.invuln > 0 ? 8 : 0) | (p.out ? 16 : 0),
         p.hp, r2(p.charge), r2(Math.max(0, p.respawnT)), p.ammo.length, p.ammo.length ? p.ammo[0] : 0,
         p.score, p.hits, p.kos, p.deaths,
       ]),

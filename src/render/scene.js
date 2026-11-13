@@ -339,6 +339,7 @@ export class Renderer {
     for (const p of g.players) {
       const m = this.models[p.id];
       const local = p.id === this.localId;
+      if (p.out) { m.root.visible = false; continue; } // vaga vazia
       m.root.visible = !p.alive || local || !(p.invuln > 0 && Math.floor(t * 12) % 2 === 0);
       m.update(p, dt, alpha, local && p.alive ? view : p);
     }

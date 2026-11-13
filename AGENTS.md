@@ -56,6 +56,8 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - Rede: uma sala única de 8 vagas em `/ws`, mensagens JSON. Cliente manda `join` e um `cmd` (com `seq`) por tick;
   servidor responde `welcome`/`full`, `roster` (alguém entrou/saiu), `start` (nova partida) e `snap` 30x/s com estado + eventos.
   Quem entra assume a vaga de um bot; quem sai devolve a vaga a um bot. Sem humanos conectados a sala não roda.
+- Bots online são opcionais: quem entra numa sala vazia escolhe (`join` com `bots`), e vale até a sala esvaziar.
+  Sem bots, as vagas livres ficam com `player.out = true` (não jogam, não aparecem, fora do placar).
 - O jogador local online é previsto no cliente com `Game.movePlayer`/`chargeStep` (os mesmos do servidor) e reconciliado
   a cada `snap` pelo `ack`. Mudou a física do jogador? Mude só nesses métodos, senão cliente e servidor divergem.
 - `NetGame` e `Game` precisam expor os mesmos campos que render e HUD leem (`players`, `balloons`, `bags`, `shirts`,

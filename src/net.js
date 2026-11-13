@@ -13,7 +13,7 @@ function blankPlayer(id) {
     id, name: '', color: 0xffffff, isBot: true,
     x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, onGround: true,
     hp: CFG.maxHp, alive: true, respawnT: 0, invuln: 0, ammo: [], charge: 0, charging: false, cooldown: 0,
-    score: 0, hits: 0, kos: 0, deaths: 0,
+    score: 0, hits: 0, kos: 0, deaths: 0, out: false,
     sx: 0, sy: 0, sz: 0, tx: 0, ty: 0, tz: 0, syaw: 0, tyaw: 0, spitch: 0, tpitch: 0, has: false, ammoKey: '',
   };
 }
@@ -28,23 +28,24 @@ export class NetGame {
     this.events = [];
     this.timeLeft = 0; this.ended = false; this.wait = 0; this.endedAt = 0;
     this.localId = -1; this.seq = 0; this.pending = []; this.pred = null; this.snapAt = 0;
-    this.ws = null;
+    this.ws = null; this.bots = true;
     this.onStart = null; this.onRoster = null; this.onClose = null; this.onLocalThrow = null;
   }
 
-  connect(name) {
+  connect(name, bots = true) {
     return new Promise((resolve, reject) => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       const ws = new WebSocket(`${proto}://${location.host}/ws`);
       this.ws = ws;
       let joined = false;
-      ws.onopen = () => ws.send(JSON.stringify({ t: 'join', name }));
+      ws.onopen = () => ws.send(JSON.stringify({ t: 'join', name, bots }));
       ws.onmessage = (ev) => {
         const m = JSON.parse(ev.data);
         if (m.t === 'welcome') {
           this.localId = m.id;
           this.setRoster(m.players);
           this.timeLeft = m.matchTime;
+          this.bots = m.bots;
           joined = true;
           resolve();
         } else if (m.t === 'full') {
@@ -82,14 +83,14 @@ export class NetGame {
   setRoster(list) {
     list.forEach((r, id) => {
       const p = this.players[id] || (this.players[id] = blankPlayer(id));
-      p.name = r.name; p.color = r.color; p.isBot = r.isBot;
+      p.name = r.name; p.color = r.color; p.isBot = r.isBot; p.out = !!r.out;
     });
     this.players.length = list.length;
     if (!this.pred) this.pred = blankPlayer(this.localId);
   }
 
   ranking() {
-    return [...this.players].sort((a, b) => b.score - a.score || b.kos - a.kos || a.deaths - b.deaths || a.id - b.id);
+    return this.players.filter((p) => !p.out).sort((a, b) => b.score - a.score || b.kos - a.kos || a.deaths - b.deaths || a.id - b.id);
   }
 
   launch(p, charge) { return this.helper.launch(p, charge); }
@@ -123,7 +124,7 @@ export class NetGame {
       const p = this.players[id];
       if (!p) return;
       const alive = !!(a[7] & 1);
-      p.hp = a[8]; p.respawnT = a[10]; p.invuln = a[7] & 8 ? 1 : 0;
+      p.hp = a[8]; p.respawnT = a[10]; p.invuln = a[7] & 8 ? 1 : 0; p.out = !!(a[7] & 16);
       p.score = a[13]; p.hits = a[14]; p.kos = a[15]; p.deaths = a[16];
       if (id === this.localId) {
         p.alive = alive;

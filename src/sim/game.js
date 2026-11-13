@@ -53,11 +53,18 @@ export class Game {
       hp: CFG.maxHp, alive: true, respawnT: 0, invuln: CFG.invuln,
       ammo: [], charge: 0, charging: false, cooldown: 0,
       score: 0, hits: 0, kos: 0, deaths: 0, thrown: 0,
+      out: false, // vaga vazia (multiplayer sem bots): não joga, não aparece
     };
     this.players.push(p);
     const s = this.map.spawns[id % this.map.spawns.length];
     this.placeAt(p, s);
     return p;
+  }
+
+  // Marca uma vaga como vazia ou ocupada.
+  setOut(p, out) {
+    p.out = out;
+    if (out) { p.alive = false; p.charging = false; p.charge = 0; }
   }
 
   fillBag(p) {
@@ -107,12 +114,13 @@ export class Game {
   }
 
   ranking() {
-    return [...this.players].sort((a, b) => b.score - a.score || b.kos - a.kos || a.deaths - b.deaths || a.id - b.id);
+    return this.players.filter((p) => !p.out).sort((a, b) => b.score - a.score || b.kos - a.kos || a.deaths - b.deaths || a.id - b.id);
   }
 
   // ---------- jogadores ----------
   stepPlayer(p, cmd, dt) {
     p.px = p.x; p.py = p.y; p.pz = p.z;
+    if (p.out) return;
     if (!p.alive) {
       p.respawnT -= dt;
       if (p.respawnT <= 0) this.respawn(p);

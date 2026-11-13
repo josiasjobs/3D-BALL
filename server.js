@@ -47,7 +47,7 @@ wss.on('connection', (ws) => {
     try { m = JSON.parse(data); } catch { return; }
     if (!m || typeof m !== 'object') return;
     if (m.t === 'join' && id < 0) {
-      id = room.join(conn, m.name);
+      id = room.join(conn, m.name, { bots: m.bots !== false });
       if (id < 0) { conn.send(JSON.stringify({ t: 'full' })); ws.close(); }
       else console.log(`+ ${room.slots[id].name} entrou (${room.humans} conectado(s))`);
     } else if (m.t === 'cmd' && id >= 0) {

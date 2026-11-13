@@ -62,6 +62,7 @@
 
   #cross { position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px; }
   #cross .charge { fill: none; stroke: var(--c3); stroke-width: 5; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 36px 36px; }
+  #cross .ring { fill: none; stroke: #fff; stroke-width: 2; }
   #cross .plus { fill: none; stroke: #000; stroke-width: 3; stroke-linecap: round; }
   #cross .halo { fill: none; stroke: rgba(255,255,255,.55); stroke-width: 5; stroke-linecap: round; }
   #hitmark { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; opacity: 0; }
@@ -87,7 +88,7 @@
   h1 span:nth-child(8n+5) { color: var(--c5); } h1 span:nth-child(8n+6) { color: var(--c6); }
   h1 span:nth-child(8n+7) { color: var(--c7); } h1 span:nth-child(8n+8) { color: var(--c8); }
   .tag { margin: 16px 0 20px; font-weight: 700; font-size: 16px; }
-  .opts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: left; margin-bottom: 18px; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; margin-bottom: 18px; }
   .opts label { font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; display: grid; gap: 4px; }
   .opts input, .opts select { font: inherit; font-size: 16px; font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 7px 9px; width: 100%; }
   button.go { font: inherit; font-weight: 900; font-size: 24px; color: var(--ink); background: var(--c3); border: 3px solid var(--ink); border-radius: 14px; padding: 10px 40px; box-shadow: 4px 5px 0 var(--ink); cursor: pointer; }
@@ -123,6 +124,7 @@
 
   <svg id="cross" viewBox="0 0 72 72">
     <circle id="charge" class="charge" cx="36" cy="36" r="24" stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
+    <circle class="ring" cx="36" cy="36" r="18"/>
     <path class="halo" d="M36 22v9M36 41v9M22 36h9M41 36h9"/>
     <path class="plus" d="M36 22v9M36 41v9M22 36h9M41 36h9"/>
   </svg>
@@ -155,6 +157,9 @@
         </label>
         <label>Dificuldade (treino)
           <select id="skill"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select>
+        </label>
+        <label>Bots (online)
+          <select id="netBots"><option value="1" selected>Com bots</option><option value="0">Sem bots</option></select>
         </label>
       </div>
       <div class="btns">

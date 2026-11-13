@@ -156,8 +156,9 @@ async function startOnline() {
   status.textContent = 'Conectando…';
   btn.disabled = true;
   const n = new NetGame();
+  const wantBots = $('netBots').value === '1';
   try {
-    await n.connect($('nick').value.trim().slice(0, 12));
+    await n.connect($('nick').value.trim().slice(0, 12), wantBots);
   } catch (err) {
     status.textContent = err.message;
     btn.disabled = false;
@@ -178,6 +179,9 @@ async function startOnline() {
   n.onClose = () => { toMenu(); $('netStatus').textContent = 'A conexão com o servidor caiu.'; };
   $('pauseTag').textContent = 'A partida continua rolando enquanto você está aqui.';
   showPlaying();
+  // a sala já estava aberta por outra pessoa com a opção contrária
+  if (n.bots !== wantBots) hud.message(n.bots ? 'Esta sala já está aberta com bots' : 'Esta sala já está aberta sem bots', 4);
+  else if (!n.bots && game.ranking().length === 1) hud.message('Sala sem bots: esperando outros jogadores', 4);
 }
 
 function leaveOnline() {
