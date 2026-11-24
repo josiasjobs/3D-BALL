@@ -27,7 +27,9 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - `src/server/room.js` — `Room`: sala autoritativa (simulação, bots nas vagas livres, fila de comandos, envio de estado).
   Não conhece WebSocket (recebe objetos com `send(texto)`), por isso é testável sem rede. `server.js` faz a ponte.
 - `src/sim/` — regras do jogo, **sem Three.js e sem DOM**:
-  - `map.js` — arena (caixas AABB), spawns, pontos de sacola, paleta, interseção segmento×caixa.
+  - `map.js` — mapas (`MAPS`: `praca`, `patio`; `buildMap(id)`, id desconhecido → Praça): caixas AABB, spawns,
+    pontos de sacola e roupa; paleta; interseção segmento×caixa. `test/map.test.js` confere todo mapa da lista
+    (nada nasce dentro de obstáculo, bots alcançam spawns/sacolas/roupas). Mapa novo = função `buildX()` + entrada em `MAPS`.
   - `game.js` — `Game`: jogadores, bexigas, sacolas, pontuação, fila de eventos; constantes em `CFG`.
   - `nav.js` — grade de navegação + A* para os bots.
   - `bot.js` — `BotBrain`: IA que devolve um comando por tick. Os níveis (`SKILLS`: fácil/normal/difícil) mudam mira,
@@ -61,8 +63,8 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - `window.__tinta` expõe `game`, `state`, `net` e `input` para depuração e testes no navegador.
 - Rede: várias salas de 8 vagas em `/ws`, mensagens JSON. Cada sala tem um código de 5 letras (`CODE_CHARS`, sem 0/O, 1/I/L);
   pública aparece em `GET /api/rooms`, privada só por código. A sala é apagada quando o último humano sai; máximo `MAX_ROOMS`.
-  Cliente manda `create` (`name`, `bots`, `skill`, `public`) ou `join` (`name`, `code`), depois um `cmd` (com `seq`) por tick;
-  servidor responde `welcome` (com `code`, `public`, `bots`, `skill`) ou `error` (`reason`: `notfound`/`full`/`limit`), `roster` (alguém entrou/saiu),
+  Cliente manda `create` (`name`, `bots`, `skill`, `map`, `public`) ou `join` (`name`, `code`), depois um `cmd` (com `seq`) por tick;
+  servidor responde `welcome` (com `code`, `public`, `bots`, `skill`, `map`) ou `error` (`reason`: `notfound`/`full`/`limit`), `roster` (alguém entrou/saiu),
   `start` (nova partida) e `snap` 30x/s com estado + eventos. Quem entra assume a vaga de um bot; quem sai devolve a vaga a um bot.
 - Bots online: quem cria a sala escolhe quantos (`create` com `bots` de 0 a 7) e a dificuldade (`skill`), e vale até a sala
   esvaziar. `Room.assignBots()` põe os bots nas últimas vagas livres; as demais vagas livres ficam com `player.out = true`

@@ -5,6 +5,7 @@ import { Game, CFG } from '../sim/game.js';
 import { Nav } from '../sim/nav.js';
 import { BotBrain, SKILLS } from '../sim/bot.js';
 import { BOT_NAMES, PLAYER_COLORS } from '../sim/roster.js';
+import { MAPS } from '../sim/map.js';
 
 export const TICK = 1 / 60;
 const SNAP_EVERY = 2;      // manda estado a cada 2 ticks (30 vezes por segundo)
@@ -19,8 +20,9 @@ export function cleanName(name, fallback) {
 }
 
 export class Room {
-  constructor({ slots = 8, matchTime = CFG.matchTime, skill = 'normal' } = {}) {
+  constructor({ slots = 8, matchTime = CFG.matchTime, skill = 'normal', map = 'praca' } = {}) {
     this.matchTime = matchTime; this.skill = skill;
+    this.mapId = MAPS.some((m) => m.id === map) ? map : MAPS[0].id; // fixo enquanto a sala existir
     // quem abre a sala (primeiro a entrar) escolhe quantos bots (0 a vagas-1) e a dificuldade deles
     this.botCount = slots - 1;
     this.code = ''; this.isPublic = true; this.host = ''; // preenchidos pelo Lobby
@@ -42,7 +44,7 @@ export class Room {
   roster() {
     return {
       players: this.slots.map((s, id) => ({ name: s.name, color: s.color, isBot: !s.conn, out: !s.conn && !this.bots[id] })),
-      matchTime: this.matchTime, bots: this.botCount, skill: this.skill, code: this.code, public: this.isPublic,
+      matchTime: this.matchTime, bots: this.botCount, skill: this.skill, map: this.mapId, code: this.code, public: this.isPublic,
     };
   }
 
@@ -52,7 +54,7 @@ export class Room {
   }
 
   newMatch() {
-    this.game = new Game({ seed: (Date.now() & 0xffffff) || 1, matchTime: this.matchTime });
+    this.game = new Game({ seed: (Date.now() & 0xffffff) || 1, matchTime: this.matchTime, map: this.mapId });
     if (!this.nav) this.nav = new Nav(this.game.map);
     this.bots = []; this.queues = []; this.last = []; this.cmds = [];
     this.slots.forEach((s, id) => {

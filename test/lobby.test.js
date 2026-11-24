@@ -43,7 +43,7 @@ test('lobby: sala privada fica fora da lista pública', () => {
   const lobby = new Lobby();
   const pub = lobby.create(fakeConn(), 'Ana', { isPublic: true, bots: 3, skill: 'facil' }).room;
   lobby.create(fakeConn(), 'Bia', { isPublic: false });
-  assert.deepEqual(lobby.list(), [{ code: pub.code, host: 'Ana', humans: 1, slots: 8, bots: 3, skill: 'facil' }]);
+  assert.deepEqual(lobby.list(), [{ code: pub.code, host: 'Ana', humans: 1, slots: 8, bots: 3, skill: 'facil', map: 'praca' }]);
 });
 
 test('lobby: nome do anfitrião é limpo como o do jogador', () => {
@@ -76,4 +76,25 @@ test('lobby: tick faz as salas rodarem e mandarem estado', () => {
   lobby.create(a, 'Ana');
   for (let i = 0; i < 4; i++) lobby.tick();
   assert.ok(a.msgs.some((m) => m.t === 'snap'));
+});
+
+test('lobby: sala de pátio usa o pátio e anuncia o mapa', () => {
+  const lobby = new Lobby();
+  const a = fakeConn(), b = fakeConn();
+  const { room } = lobby.create(a, 'Ana', { map: 'patio' });
+  assert.equal(room.game.map.id, 'patio');
+  assert.equal(a.msgs[0].map, 'patio');
+  assert.equal(lobby.list()[0].map, 'patio');
+  lobby.join(b, 'Bia', room.code);
+  assert.equal(b.msgs[0].map, 'patio');
+  // nova partida na mesma sala continua no pátio
+  room.newMatch();
+  assert.equal(room.game.map.id, 'patio');
+});
+
+test('lobby: mapa desconhecido vira Praça', () => {
+  const lobby = new Lobby();
+  const { room } = lobby.create(fakeConn(), 'Ana', { map: 'lua' });
+  assert.equal(room.game.map.id, 'praca');
+  assert.equal(lobby.list()[0].map, 'praca');
 });
