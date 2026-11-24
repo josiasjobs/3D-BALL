@@ -311,4 +311,4 @@ last = performance.now();
 requestAnimationFrame(frame);
 
 // gancho para depuração/testes automatizados
-window.__tinta = { get game() { return game; }, get state() { return state; }, get localId() { return localId; }, get net() { return net; }, input };
+window.__tinta = { get game() { return game; }, get state() { return state; }, get localId() { return localId; }, get net() { return net; }, get renderer() { return renderer; }, input };

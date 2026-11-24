@@ -9,7 +9,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const CITY = ['base', 'road_straight', 'road_straight_crossing', 'road_junction',
   'building_A', 'building_B', 'building_C', 'building_D', 'building_E', 'building_F', 'building_G', 'building_H',
   'car_taxi', 'car_police', 'car_sedan', 'car_hatchback',
-  'streetlight', 'bush', 'firehydrant', 'bench', 'dumpster', 'trafficlight_A'];
+  'streetlight', 'bush', 'firehydrant', 'bench', 'dumpster', 'trafficlight_A',
+  'watertower', 'box_A', 'box_B', 'trash_A', 'trash_B', 'car_stationwagon'];
 const PLAT = ['barrier_4x1x2', 'barrier_4x1x4', 'pillar_1x1x4', 'platform_wood_1x1x1', 'cone',
   'platform_6x6x2_blue', 'platform_2x2x1_blue',
   'barrier_4x1x1_blue', 'barrier_4x1x1_red', 'barrier_4x1x1_yellow', 'barrier_4x1x1_green',
@@ -29,6 +30,10 @@ const KIND = {
   crate: { model: 'platform_wood_1x1x1' },
   pillar: { model: 'pillar_1x1x4' },
   dumpster: { model: 'dumpster' },
+  // Pátio de Cargas
+  tower: { model: 'watertower' },
+  container: { model: (b) => (b.color === 'red' || b.color === 'green' ? 'box_A' : 'box_B') },
+  trash: { model: (b) => (b.color === 'red' || b.color === 'green' ? 'trash_A' : 'trash_B') },
 };
 
 export async function loadWorldAssets() {
@@ -84,13 +89,16 @@ export function buildWorld(scene, map, assets) {
   // chão de fundo, por baixo de tudo
   const under = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshLambertMaterial({ color: 0x6f747c }));
   under.rotation.x = -Math.PI / 2; under.position.y = -0.2;
+  under.userData.own = true; // geometria própria (as dos modelos são compartilhadas)
   world.add(under);
+  const streets = map.id !== 'patio'; // a Praça é um cruzamento; o pátio é todo de concreto
 
   // --- piso: cruzamento de duas ruas, calçada nos quatro cantos ---
   for (let i = -3; i <= 3; i++) {
     for (let j = -3; j <= 3; j++) {
       let name = 'base', rot = 0;
-      if (i === 0 && j === 0) name = 'road_junction';
+      if (!streets) name = 'base';
+      else if (i === 0 && j === 0) name = 'road_junction';
       else if (i === 0) { name = Math.abs(j) === 1 ? 'road_straight_crossing' : 'road_straight'; }
       else if (j === 0) { name = Math.abs(i) === 1 ? 'road_straight_crossing' : 'road_straight'; rot = Math.PI / 2; }
       const a = assets[name];
@@ -129,10 +137,10 @@ export function buildWorld(scene, map, assets) {
     }
   }
 
-  // --- bandeiras nos cantos do forte ---
+  // --- bandeiras nos cantos do forte (só se o mapa tiver forte) ---
   const flags = ['red', 'yellow', 'green', 'blue'];
   let f = 0;
-  for (const sx of [1, -1]) for (const sz of [1, -1]) {
+  if (map.boxes.some((b) => b.kind === 'fort')) for (const sx of [1, -1]) for (const sz of [1, -1]) {
     const a = assets[`flag_A_${flags[f++]}`];
     const m = a.scene.clone(true);
     m.position.set(sx * 3.8, 2.7, sz * 3.8);
@@ -147,7 +155,7 @@ export function buildWorld(scene, map, assets) {
     for (let j = -4; j <= 4; j++) {
       if (Math.abs(i) !== 4 && Math.abs(j) !== 4) continue;
       const x = i * TILE, z = j * TILE;
-      if ((i === 0 || j === 0)) {
+      if (streets && (i === 0 || j === 0)) {
         // as ruas continuam para fora da arena
         const a = assets.road_straight;
         const m = a.scene.clone(true);

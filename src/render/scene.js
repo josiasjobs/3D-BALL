@@ -108,7 +108,25 @@ export class Renderer {
   async load() {
     const [chars, world] = await Promise.all([loadCharacterAsset(), loadWorldAssets()]);
     this.asset = chars;
-    buildWorld(this.scene, this.map, world);
+    this.worldAssets = world;
+    this.world = buildWorld(this.scene, this.map, world);
+  }
+
+  // Troca o cenário (obstáculos, piso, sacolas e roupas) sem recarregar a página.
+  setMap(map) {
+    if (map.id === this.map.id) return;
+    const shared = new Set([this.balloonGeo]);
+    const drop = (root, own) => {
+      this.scene.remove(root);
+      root.traverse((o) => { if (o.geometry && !shared.has(o.geometry) && (own || o.userData.own)) o.geometry.dispose(); });
+    };
+    drop(this.world, false); // modelos dos kits compartilham geometria com os assets: só a do chão é própria
+    for (const b of this.bagModels) drop(b.root, true);
+    for (const s of this.shirtModels) drop(s.root, true);
+    this.map = map;
+    this.world = buildWorld(this.scene, map, this.worldAssets);
+    this.buildBags();
+    this.buildShirts();
   }
 
   resize() {
@@ -247,7 +265,7 @@ export class Renderer {
       beam.position.y = 5.5;
       root.add(ring, body, beam);
       this.scene.add(root);
-      return { body, beam, ring };
+      return { root, body, beam, ring };
     });
   }
 
@@ -297,6 +315,7 @@ export class Renderer {
 
   // ---------- partida ----------
   setGame(game, localId) {
+    this.setMap(game.map); // o cenário segue sempre o mapa do jogo
     this.game = game; this.localId = localId;
     this.dynamic.clear();
     this.models = [];
