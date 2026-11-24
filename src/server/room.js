@@ -13,10 +13,16 @@ const EMPTY = { seq: 0, mx: 0, mz: 0, yaw: 0, pitch: 0, jump: false, fire: false
 const r2 = (v) => Math.round(v * 100) / 100;
 const num = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : 0);
 
+// Limpa o apelido vindo da rede: sem caracteres de controle nem < >, no máximo 12 letras.
+export function cleanName(name, fallback) {
+  return String(name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12) || fallback;
+}
+
 export class Room {
   constructor({ slots = 8, matchTime = CFG.matchTime, skill = 'normal' } = {}) {
     this.matchTime = matchTime; this.skill = skill;
     this.useBots = true; // quem abre a sala (primeiro a entrar) escolhe
+    this.code = ''; this.isPublic = true; this.host = ''; // preenchidos pelo Lobby
     this.slots = [];
     for (let i = 0; i < slots; i++) this.slots.push({ name: '', color: PLAYER_COLORS[i % PLAYER_COLORS.length], conn: null });
     for (const s of this.slots) s.name = this.freeBotName();
@@ -35,7 +41,7 @@ export class Room {
   roster() {
     return {
       players: this.slots.map((s) => ({ name: s.name, color: s.color, isBot: !s.conn, out: !s.conn && !this.useBots })),
-      matchTime: this.matchTime, bots: this.useBots,
+      matchTime: this.matchTime, bots: this.useBots, code: this.code, public: this.isPublic,
     };
   }
 
@@ -70,7 +76,7 @@ export class Room {
     }
     const slot = this.slots[id];
     slot.conn = conn;
-    slot.name = String(name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12) || `Jogador ${id + 1}`;
+    slot.name = cleanName(name, `Jogador ${id + 1}`);
     const p = this.game.players[id];
     p.name = slot.name; p.isBot = false; p.out = false;
     p.score = p.hits = p.kos = p.deaths = p.thrown = 0;
