@@ -1,5 +1,5 @@
 // Liga tudo: simulação em passo fixo, entrada, render, HUD e som.
-// Dois modos: treino local (a simulação roda aqui, com bots) e online (roda no servidor).
+// Dois modos: single player local (a simulação roda aqui, com bots) e multiplayer (roda no servidor, em salas por código).
 import { Game } from './sim/game.js';
 import { Nav } from './sim/nav.js';
 import { BotBrain } from './sim/bot.js';
@@ -150,22 +150,26 @@ function startTraining() {
   showPlaying();
 }
 
-async function startOnline() {
+// opts: { create: { bots, public } } para abrir uma sala, ou { code } para entrar numa
+let connecting = false;
+async function startOnline(opts) {
+  if (connecting) return;
   initAudio();
-  const status = $('netStatus'), btn = $('online');
+  const status = $('netStatus');
   status.textContent = 'Conectando…';
-  btn.disabled = true;
+  connecting = true; setMultiBusy(true);
   const n = new NetGame();
-  const wantBots = $('netBots').value === '1';
   try {
-    await n.connect($('nick').value.trim().slice(0, 12), wantBots);
+    await n.connect($('nick').value.trim().slice(0, 12), opts);
   } catch (err) {
     status.textContent = err.message;
-    btn.disabled = false;
+    connecting = false; setMultiBusy(false);
+    refreshRooms();
     return;
   }
   status.textContent = '';
-  btn.disabled = false;
+  connecting = false; setMultiBusy(false);
+  stopRoomList();
   net = n; game = n; localId = n.localId; bots = []; acc = 0;
   renderer.setGame(game, localId);
   n.onLocalThrow = () => { renderer.models[localId].onThrow(); sfx.throw(1); };
@@ -177,11 +181,62 @@ async function startOnline() {
     if (state === 'ended') updateEndButton();
   };
   n.onClose = () => { toMenu(); $('netStatus').textContent = 'A conexão com o servidor caiu.'; };
-  $('pauseTag').textContent = 'A partida continua rolando enquanto você está aqui.';
+  $('pauseTag').textContent = `Sala ${n.code} (${n.isPublic ? 'pública' : 'privada'}). A partida continua rolando enquanto você está aqui.`;
   showPlaying();
-  // a sala já estava aberta por outra pessoa com a opção contrária
-  if (n.bots !== wantBots) hud.message(n.bots ? 'Esta sala já está aberta com bots' : 'Esta sala já está aberta sem bots', 4);
-  else if (!n.bots && game.ranking().length === 1) hud.message('Sala sem bots: esperando outros jogadores', 4);
+  if (!n.bots && game.ranking().length === 1) hud.message(`Sala ${n.code} sem bots: esperando outros jogadores`, 4);
+  else hud.message(`Sala ${n.code}${n.isPublic ? '' : ': passe o código para os amigos'}`, 4);
+}
+
+function setMultiBusy(on) {
+  for (const b of document.querySelectorAll('#multi button')) b.disabled = on;
+}
+
+// ---------- lista de salas públicas (só com o menu aberto na aba Multiplayer) ----------
+let roomTimer = 0;
+async function refreshRooms() {
+  let rooms;
+  try {
+    const r = await fetch('/api/rooms', { cache: 'no-store' });
+    if (!r.ok) throw new Error();
+    rooms = await r.json();
+  } catch {
+    setList('<li class="empty">Não foi possível listar as salas.</li>');
+    return;
+  }
+  if (state !== 'menu') return;
+  setList(rooms.length
+    ? rooms.map((s) => `<li><span class="nm">Sala de ${esc(s.host)} <small>${esc(s.code)}</small></span>`
+      + `<small>${s.humans}/${s.slots} · ${s.bots ? 'com bots' : 'sem bots'}</small>`
+      + `<button type="button" data-code="${esc(s.code)}" ${s.humans >= s.slots || connecting ? 'disabled' : ''}>Entrar</button></li>`).join('')
+    : '<li class="empty">Nenhuma sala pública aberta.</li>');
+}
+// só troca o HTML se mudou: redesenhar à toa faz o botão sumir no meio de um clique
+let listHtml = '';
+function setList(html) {
+  if (html === listHtml) return;
+  listHtml = html;
+  $('roomList').innerHTML = html;
+}
+function startRoomList() {
+  stopRoomList();
+  refreshRooms();
+  roomTimer = setInterval(() => { if (state === 'menu') refreshRooms(); else stopRoomList(); }, 3000);
+}
+function stopRoomList() { clearInterval(roomTimer); roomTimer = 0; }
+
+function showTab(multi) {
+  $('tabSolo').setAttribute('aria-selected', String(!multi));
+  $('tabMulti').setAttribute('aria-selected', String(multi));
+  hud.show('solo', !multi); hud.show('multi', multi);
+  $('netStatus').textContent = '';
+  if (multi) startRoomList(); else stopRoomList();
+}
+const multiOpen = () => $('tabMulti').getAttribute('aria-selected') === 'true';
+
+function joinByCode() {
+  const code = $('code').value.toUpperCase().replace(/\s/g, '');
+  if (code.length !== 5) { $('netStatus').textContent = 'O código tem 5 letras.'; return; }
+  startOnline({ code });
 }
 
 function leaveOnline() {
@@ -209,6 +264,7 @@ function toMenu() {
   input.unlock();
   newGame({ withHuman: false, botCount: 8, skill: 'normal' });
   hud.show('hud', false); hud.show('pause', false); hud.show('end', false); hud.show('menu', true);
+  if (multiOpen()) startRoomList();
 }
 
 input.onLockChange = (locked) => {
@@ -216,8 +272,16 @@ input.onLockChange = (locked) => {
   else if (locked && state === 'paused') { state = 'playing'; hud.show('pause', false); }
 };
 
-$('form').addEventListener('submit', (e) => { e.preventDefault(); startTraining(); });
-$('online').addEventListener('click', startOnline);
+$('form').addEventListener('submit', (e) => { e.preventDefault(); if (!multiOpen()) startTraining(); });
+$('tabSolo').addEventListener('click', () => showTab(false));
+$('tabMulti').addEventListener('click', () => showTab(true));
+$('create').addEventListener('click', () => startOnline({ create: { bots: $('netBots').value === '1', public: $('roomVis').value === '1' } }));
+$('joinCode').addEventListener('click', joinByCode);
+$('code').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); joinByCode(); } });
+$('roomList').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-code]');
+  if (b && !b.disabled) startOnline({ code: b.dataset.code });
+});
 $('again').addEventListener('click', () => { if (net) showPlaying(); else startTraining(); });
 $('resume').addEventListener('click', () => input.lock());
 $('quit').addEventListener('click', (e) => { e.preventDefault(); toMenu(); });

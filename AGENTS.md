@@ -1,7 +1,8 @@
 # Tinta Neles! (3D-BALL)
 
 Jogo 3D em primeira pessoa para navegador (PC): guerra de bexigas de tinta, todos contra todos.
-Tem dois modos: online (multiplayer, servidor autoritativo em Node; bots completam as vagas) e treino local só com bots.
+Tem dois modos: single player local (1 a 7 bots) e multiplayer (servidor autoritativo em Node, salas públicas ou privadas
+por código, com ou sem bots completando as vagas).
 Textos do jogo e comentários do código em português do Brasil.
 
 ## Stack
@@ -18,8 +19,9 @@ Textos do jogo e comentários do código em português do Brasil.
 Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem o servidor.
 
 ## Estrutura
-- `index.html` — canvas, HUD, telas (menu, pausa, fim) e todo o CSS.
-- `src/main.js` — laço principal (passo fixo de 60 Hz), estados da tela e os dois modos (treino local / online).
+- `index.html` — canvas, HUD, telas (menu com abas Single player / Multiplayer, pausa, fim) e todo o CSS.
+- `src/main.js` — laço principal (passo fixo de 60 Hz), estados da tela, os dois modos (single player local / multiplayer)
+  e a lista de salas públicas do menu (busca `/api/rooms` a cada 3 s só com o menu na aba Multiplayer).
 - `src/net.js` — `NetGame`: cliente de rede que imita a interface de `Game` para render/HUD/som.
 - `src/server/lobby.js` — `Lobby`: salas abertas por código (`Map`), criar/entrar/sair, lista das públicas, limite de salas.
 - `src/server/room.js` — `Room`: sala autoritativa (simulação, bots nas vagas livres, fila de comandos, envio de estado).
