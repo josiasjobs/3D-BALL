@@ -20,14 +20,18 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 
 ## Estrutura
 - `index.html` — canvas, HUD, telas (menu com abas Single player / Multiplayer, pausa, fim) e todo o CSS.
+  Os seletores de mapa (`.mapSel`) são preenchidos por `main.js` a partir de `MAPS`.
 - `src/main.js` — laço principal (passo fixo de 60 Hz), estados da tela, os dois modos (single player local / multiplayer)
   e a lista de salas públicas do menu (busca `/api/rooms` a cada 3 s só com o menu na aba Multiplayer).
 - `src/net.js` — `NetGame`: cliente de rede que imita a interface de `Game` para render/HUD/som.
+  O mapa da sala chega no `welcome` (`setMap`); quem entra usa o mapa da sala, não o do seu seletor.
 - `src/server/lobby.js` — `Lobby`: salas abertas por código (`Map`), criar/entrar/sair, lista das públicas, limite de salas.
 - `src/server/room.js` — `Room`: sala autoritativa (simulação, bots nas vagas livres, fila de comandos, envio de estado).
   Não conhece WebSocket (recebe objetos com `send(texto)`), por isso é testável sem rede. `server.js` faz a ponte.
 - `src/sim/` — regras do jogo, **sem Three.js e sem DOM**:
-  - `map.js` — arena (caixas AABB), spawns, pontos de sacola, paleta, interseção segmento×caixa.
+  - `map.js` — mapas (`MAPS`: `praca`, `patio`; `buildMap(id)`, id desconhecido → Praça): caixas AABB, spawns,
+    pontos de sacola e roupa; paleta; interseção segmento×caixa. `test/map.test.js` confere todo mapa da lista
+    (nada nasce dentro de obstáculo, bots alcançam spawns/sacolas/roupas). Mapa novo = função `buildX()` + entrada em `MAPS`.
   - `game.js` — `Game`: jogadores, bexigas, sacolas, pontuação, fila de eventos; constantes em `CFG`.
   - `nav.js` — grade de navegação + A* para os bots.
   - `bot.js` — `BotBrain`: IA que devolve um comando por tick. Os níveis (`SKILLS`: fácil/normal/difícil) mudam mira,
@@ -58,11 +62,13 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - Convenção de direção: com `yaw = 0` o jogador olha para `-z`; `pitch` positivo é para cima.
 - Colisão é toda por caixas alinhadas aos eixos; degraus de até `CFG.step` são subidos andando.
 - Os bots só navegam no nível do chão (não sobem no forte central).
-- `window.__tinta` expõe `game`, `state`, `net` e `input` para depuração e testes no navegador.
+- `window.__tinta` expõe `game`, `state`, `net`, `renderer` e `input` para depuração e testes no navegador.
+- `Renderer.setGame(game)` troca o cenário sozinho (`setMap`) quando `game.map.id` muda: obstáculos, piso, sacolas e roupas.
+  O piso da Praça é cruzamento de ruas; o do pátio é todo `base` (concreto); bandeiras só aparecem se houver `fort`.
 - Rede: várias salas de 8 vagas em `/ws`, mensagens JSON. Cada sala tem um código de 5 letras (`CODE_CHARS`, sem 0/O, 1/I/L);
   pública aparece em `GET /api/rooms`, privada só por código. A sala é apagada quando o último humano sai; máximo `MAX_ROOMS`.
-  Cliente manda `create` (`name`, `bots`, `skill`, `public`) ou `join` (`name`, `code`), depois um `cmd` (com `seq`) por tick;
-  servidor responde `welcome` (com `code`, `public`, `bots`, `skill`) ou `error` (`reason`: `notfound`/`full`/`limit`), `roster` (alguém entrou/saiu),
+  Cliente manda `create` (`name`, `bots`, `skill`, `map`, `public`) ou `join` (`name`, `code`), depois um `cmd` (com `seq`) por tick;
+  servidor responde `welcome` (com `code`, `public`, `bots`, `skill`, `map`) ou `error` (`reason`: `notfound`/`full`/`limit`), `roster` (alguém entrou/saiu),
   `start` (nova partida) e `snap` 30x/s com estado + eventos. Quem entra assume a vaga de um bot; quem sai devolve a vaga a um bot.
 - Bots online: quem cria a sala escolhe quantos (`create` com `bots` de 0 a 7) e a dificuldade (`skill`), e vale até a sala
   esvaziar. `Room.assignBots()` põe os bots nas últimas vagas livres; as demais vagas livres ficam com `player.out = true`
@@ -73,7 +79,7 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
   `events`, `timeLeft`, `ended`, `ranking()`, `launch()`). Campo novo de jogador usado na tela precisa entrar no `snap`.
 - Assets externos ficam todos em `assets/` (boneco e kits KayKit); manchas de tinta são geradas em canvas e os sons em WebAudio.
 - Cenário: a colisão continua sendo só as caixas de `map.js`. Cada caixa tem um `kind` (`border`, `wall`, `low`, `fort`,
-  `step`, `parapet`, `crate`, `pillar`, `dumpster`, `car`, `carTop`) que `world.js` traduz em modelo, esticado para caber
+  `step`, `parapet`, `crate`, `pillar`, `dumpster`, `car`, `carTop`, `tower`, `container`, `trash`) que `world.js` traduz em modelo, esticado para caber
   na caixa. Obstáculo novo = caixa nova em `map.js` + entrada na tabela `KIND` de `world.js`.
 - O kit de cidade é miniatura: usa escala 5 (uma peça de rua = 10 m). O piso são peças de rua/calçada com o topo em `y = 0`.
 - Prédios, postes e mobiliário fora da cerca são só decoração, sem colisão. Para usar outro modelo dos kits,
