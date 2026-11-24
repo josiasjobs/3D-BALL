@@ -31,7 +31,8 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
   - `game.js` — `Game`: jogadores, bexigas, sacolas, pontuação, fila de eventos; constantes em `CFG`.
   - `nav.js` — grade de navegação + A* para os bots.
   - `bot.js` — `BotBrain`: IA que devolve um comando por tick. Os níveis (`SKILLS`: fácil/normal/difícil) mudam mira,
-    reação, cadência, previsão, alcance de visão, giro, desvio lateral, esquiva de bexigas e distância de combate.
+    reação, cadência, previsão, alcance de visão, giro, desvio lateral, esquiva de bexigas, distância de combate e
+    velocidade no combate (`mob`; o fácil anda devagar para ser fácil de acertar).
     `test/skill.test.js` garante que os níveis continuam bem separados — ajustou `SKILLS`? Rode os testes.
   - `roster.js` — nomes de bots e cores dos jogadores.
 - `src/render/scene.js` — cena Three.js (luzes, manchas, partículas, sacolas, câmera).

@@ -6,11 +6,12 @@ import { clearLine } from './map.js';
 // pause: espera entre arremessos; lead: quanto prevê o movimento do alvo (0 a 1); view: distância
 // em que enxerga alguém (m); turn: velocidade de virar a mira (rad/s); strafe: quanto anda de lado
 // no combate (0 a 1); dodge: chance de desviar de uma bexiga vindo na sua direção;
-// near/far: distância que tenta manter do alvo no combate (perto = mais acertos).
+// near/far: distância que tenta manter do alvo no combate (perto = mais acertos);
+// mob: fração da velocidade com que se mexe no combate (1 = correndo, menor = alvo mais fácil).
 export const SKILLS = {
-  facil: { errYaw: 0.2, errPitch: 0.12, react: 1.3, pause: 2, lead: 0.2, view: 18, turn: 3, strafe: 0.35, dodge: 0, near: 9, far: 16 },
-  normal: { errYaw: 0.06, errPitch: 0.04, react: 0.5, pause: 0.8, lead: 0.8, view: 30, turn: 7, strafe: 0.9, dodge: 0, near: 6, far: 13 },
-  dificil: { errYaw: 0.02, errPitch: 0.015, react: 0.2, pause: 0.4, lead: 1, view: 34, turn: 10, strafe: 1, dodge: 0.75, near: 4, far: 9 },
+  facil: { errYaw: 0.2, errPitch: 0.12, react: 1.3, pause: 2, lead: 0.2, view: 18, turn: 3, strafe: 0.35, dodge: 0, near: 9, far: 16, mob: 0.4 },
+  normal: { errYaw: 0.06, errPitch: 0.04, react: 0.5, pause: 0.8, lead: 0.8, view: 30, turn: 7, strafe: 0.9, dodge: 0, near: 6, far: 13, mob: 1 },
+  dificil: { errYaw: 0.02, errPitch: 0.015, react: 0.2, pause: 0.4, lead: 1, view: 34, turn: 10, strafe: 1, dodge: 0.75, near: 4, far: 9, mob: 1 },
 };
 
 const wrap = (a) => {
@@ -160,7 +161,7 @@ export class BotBrain {
       const radial = dist > sk.far ? 1 : dist < sk.near ? -1 : 0;
       move[0] = ux * radial - uz * this.strafe * sk.strafe;
       move[1] = uz * radial + ux * this.strafe * sk.strafe;
-      const ml = Math.hypot(move[0], move[1]) || 1;
+      const ml = (Math.hypot(move[0], move[1]) || 1) / sk.mob;
       move[0] /= ml; move[1] /= ml;
       this.path = null;
       if (rng() < 0.004) cmd.jump = true;
