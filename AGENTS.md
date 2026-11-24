@@ -30,7 +30,9 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
   - `map.js` — arena (caixas AABB), spawns, pontos de sacola, paleta, interseção segmento×caixa.
   - `game.js` — `Game`: jogadores, bexigas, sacolas, pontuação, fila de eventos; constantes em `CFG`.
   - `nav.js` — grade de navegação + A* para os bots.
-  - `bot.js` — `BotBrain`: IA que devolve um comando por tick.
+  - `bot.js` — `BotBrain`: IA que devolve um comando por tick. Os níveis (`SKILLS`: fácil/normal/difícil) mudam mira,
+    reação, cadência, previsão, alcance de visão, giro, desvio lateral, esquiva de bexigas e distância de combate.
+    `test/skill.test.js` garante que os níveis continuam bem separados — ajustou `SKILLS`? Rode os testes.
   - `roster.js` — nomes de bots e cores dos jogadores.
 - `src/render/scene.js` — cena Three.js (luzes, manchas, partículas, sacolas, câmera).
 - `src/render/world.js` — cenário: veste cada caixa de colisão do mapa com um modelo KayKit e monta a cidade em volta.
@@ -42,7 +44,7 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - `assets/city/`, `assets/platformer/` — modelos glTF usados dos kits KayKit City Builder Bits e Platformer Pack
   (Kay Lousberg, CC0), copiados de `KayKit 1/` e `KayKit 2/`; o jogo só lê as cópias em `assets/`.
 - `src/input.js`, `src/hud.js`, `src/audio.js` — teclado/mouse, DOM do HUD, sons sintetizados em WebAudio.
-- `test/` — testes da simulação.
+- `test/` — testes da simulação, da sala/lobby e da diferença entre as dificuldades dos bots.
 
 ## Convenções e cuidados
 - `src/sim/` precisa continuar rodando em Node puro: nada de `window`, `document` ou `three` ali.
