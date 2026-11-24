@@ -40,14 +40,14 @@ test('dificuldade: fácil vira a mira mais devagar que o difícil', () => {
   assert.ok(turn('dificil') > turn('facil') * 2);
 });
 
-// Atirador normal contra um bot que não atira (só se mexe como o nível dele), 60 s por semente.
+// Atirador difícil (referência fixa) contra um bot que não atira (só se mexe como o nível dele), 60 s por semente.
 function hitsTaken(skill, seeds = 12) {
   let hits = 0;
   for (let s = 1; s <= seeds; s++) {
     const g = new Game({ seed: s * 7919, matchTime: 9999 });
     const nav = new Nav(g.map);
     const sh = g.addPlayer({ name: 'S', isBot: true }), tg = g.addPlayer({ name: 'T', isBot: true });
-    const shooter = new BotBrain(g, nav, sh.id, 'normal'), target = new BotBrain(g, nav, tg.id, skill);
+    const shooter = new BotBrain(g, nav, sh.id, 'dificil'), target = new BotBrain(g, nav, tg.id, skill);
     for (let i = 0; i < 60 / DT; i++) {
       const c = target.think(DT); c.fire = false;
       tg.invuln = 0; tg.hp = CFG.maxHp; tg.ammo.length = 20; // não morre: medimos só o desvio
@@ -65,7 +65,7 @@ test('dificuldade: bot difícil desvia de bexigas e é bem menos atingido', () =
 });
 
 // Duelo contra alvo que anda de lado: acertos do bot em 90 s, somados em várias sementes.
-function duelHits(skill, seeds = 12) {
+function duelHits(skill, seeds = 40) { // poucos acertos por duelo: amostra grande para não medir ruído
   let hits = 0;
   for (let s = 1; s <= seeds; s++) {
     const g = new Game({ seed: s * 104729, matchTime: 9999 });
@@ -86,9 +86,10 @@ function duelHits(skill, seeds = 12) {
   return hits;
 }
 
-test('dificuldade: níveis bem separados contra um alvo em movimento', () => {
+// O normal é só um pouco mais difícil que o fácil; o difícil fica bem acima dos dois.
+test('dificuldade: mira contra alvo em movimento — normal pouco acima do fácil, difícil bem acima', () => {
   const f = duelHits('facil'), n = duelHits('normal'), d = duelHits('dificil');
-  assert.ok(f * 3 <= n, `fácil ${f} deveria acertar no máximo 1/3 do normal ${n}`);
+  assert.ok(n > f && n <= f * 2, `normal ${n} deveria ficar entre fácil ${f} e 2x ele`);
   assert.ok(d >= n * 1.5, `difícil ${d} deveria acertar ao menos 1,5x o normal ${n}`);
 });
 
@@ -116,12 +117,12 @@ function felt(skill, seeds = 6) {
 
 test('dificuldade: o jogador sente a diferença (tinta recebida no meio de 7 bots)', () => {
   const f = felt('facil'), n = felt('normal'), d = felt('dificil');
-  assert.ok(f * 2 <= n, `fácil ${f.toFixed(1)}/min deveria ser no máximo metade do normal ${n.toFixed(1)}`);
-  // contra quem corre o tempo todo o difícil castiga só um pouco mais (~1,15-1,25x): o limite é o voo da bexiga
-  assert.ok(d >= n * 1.1, `difícil ${d.toFixed(1)}/min deveria ser ao menos 1,1x o normal ${n.toFixed(1)}`);
+  assert.ok(n > f && n <= f * 1.8, `normal ${n.toFixed(1)}/min deveria ficar entre fácil ${f.toFixed(1)} e 1,8x ele`);
+  assert.ok(d >= n * 1.5, `difícil ${d.toFixed(1)}/min deveria ser ao menos 1,5x o normal ${n.toFixed(1)}`);
 });
 
-test('dificuldade: bot fácil é mais fácil de acertar que o normal (anda devagar no combate)', () => {
-  const facil = hitsTaken('facil'), normal = hitsTaken('normal');
-  assert.ok(facil >= normal * 1.4, `fácil levou ${facil}, normal ${normal}`);
+test('dificuldade: como alvo, fácil é o mais fácil de acertar, normal um pouco menos, difícil bem menos', () => {
+  const facil = hitsTaken('facil'), normal = hitsTaken('normal'), dificil = hitsTaken('dificil');
+  assert.ok(facil > normal && facil <= normal * 1.8, `fácil levou ${facil}, normal ${normal}`);
+  assert.ok(normal >= dificil * 1.5, `normal levou ${normal}, difícil ${dificil}`);
 });

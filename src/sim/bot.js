@@ -10,7 +10,7 @@ import { clearLine } from './map.js';
 // mob: fração da velocidade com que se mexe no combate (1 = correndo, menor = alvo mais fácil).
 export const SKILLS = {
   facil: { errYaw: 0.2, errPitch: 0.12, react: 1.3, pause: 2, lead: 0.2, view: 18, turn: 3, strafe: 0.35, dodge: 0, near: 9, far: 16, mob: 0.4 },
-  normal: { errYaw: 0.06, errPitch: 0.04, react: 0.5, pause: 0.8, lead: 0.8, view: 30, turn: 7, strafe: 0.9, dodge: 0, near: 6, far: 13, mob: 1 },
+  normal: { errYaw: 0.15, errPitch: 0.09, react: 1, pause: 1.6, lead: 0.35, view: 22, turn: 4, strafe: 0.5, dodge: 0, near: 8, far: 14, mob: 0.55 },
   dificil: { errYaw: 0.02, errPitch: 0.015, react: 0.2, pause: 0.4, lead: 1, view: 34, turn: 10, strafe: 1, dodge: 0.75, near: 4, far: 9, mob: 1 },
 };
 
