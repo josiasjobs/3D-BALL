@@ -8,7 +8,7 @@ Textos do jogo e comentários do código em português do Brasil.
 - JavaScript puro em módulos ES, sem bundler e sem etapa de build.
 - Three.js (via npm, carregado por import map em `index.html` a partir de `node_modules/`).
 - `ws` (WebSocket) no servidor; o navegador usa o WebSocket nativo.
-- Node.js: `server.js` entrega os arquivos e hospeda a sala multiplayer; testes com `node:test`.
+- Node.js: `server.js` entrega os arquivos e hospeda as salas multiplayer; testes com `node:test`.
 
 ## Comandos
 - `npm install` — instala Three.js e `ws`.
@@ -21,6 +21,7 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - `index.html` — canvas, HUD, telas (menu, pausa, fim) e todo o CSS.
 - `src/main.js` — laço principal (passo fixo de 60 Hz), estados da tela e os dois modos (treino local / online).
 - `src/net.js` — `NetGame`: cliente de rede que imita a interface de `Game` para render/HUD/som.
+- `src/server/lobby.js` — `Lobby`: salas abertas por código (`Map`), criar/entrar/sair, lista das públicas, limite de salas.
 - `src/server/room.js` — `Room`: sala autoritativa (simulação, bots nas vagas livres, fila de comandos, envio de estado).
   Não conhece WebSocket (recebe objetos com `send(texto)`), por isso é testável sem rede. `server.js` faz a ponte.
 - `src/sim/` — regras do jogo, **sem Three.js e sem DOM**:
@@ -53,10 +54,12 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - Colisão é toda por caixas alinhadas aos eixos; degraus de até `CFG.step` são subidos andando.
 - Os bots só navegam no nível do chão (não sobem no forte central).
 - `window.__tinta` expõe `game`, `state`, `net` e `input` para depuração e testes no navegador.
-- Rede: uma sala única de 8 vagas em `/ws`, mensagens JSON. Cliente manda `join` e um `cmd` (com `seq`) por tick;
-  servidor responde `welcome`/`full`, `roster` (alguém entrou/saiu), `start` (nova partida) e `snap` 30x/s com estado + eventos.
-  Quem entra assume a vaga de um bot; quem sai devolve a vaga a um bot. Sem humanos conectados a sala não roda.
-- Bots online são opcionais: quem entra numa sala vazia escolhe (`join` com `bots`), e vale até a sala esvaziar.
+- Rede: várias salas de 8 vagas em `/ws`, mensagens JSON. Cada sala tem um código de 5 letras (`CODE_CHARS`, sem 0/O, 1/I/L);
+  pública aparece em `GET /api/rooms`, privada só por código. A sala é apagada quando o último humano sai; máximo `MAX_ROOMS`.
+  Cliente manda `create` (`name`, `bots`, `public`) ou `join` (`name`, `code`), depois um `cmd` (com `seq`) por tick;
+  servidor responde `welcome` (com `code`, `public`) ou `error` (`reason`: `notfound`/`full`/`limit`), `roster` (alguém entrou/saiu),
+  `start` (nova partida) e `snap` 30x/s com estado + eventos. Quem entra assume a vaga de um bot; quem sai devolve a vaga a um bot.
+- Bots online são opcionais: quem cria a sala escolhe (`create` com `bots`), e vale até a sala esvaziar.
   Sem bots, as vagas livres ficam com `player.out = true` (não jogam, não aparecem, fora do placar).
 - O jogador local online é previsto no cliente com `Game.movePlayer`/`chargeStep` (os mesmos do servidor) e reconciliado
   a cada `snap` pelo `ack`. Mudou a física do jogador? Mude só nesses métodos, senão cliente e servidor divergem.
