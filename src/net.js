@@ -37,7 +37,7 @@ export class NetGame {
     this.onStart = null; this.onRoster = null; this.onClose = null; this.onLocalThrow = null;
   }
 
-  // opts: { create: { bots, public } } para abrir uma sala, ou { code } para entrar numa.
+  // opts: { create: { bots (0 a 7), skill, public } } para abrir uma sala, ou { code } para entrar numa.
   connect(name, opts = {}) {
     return new Promise((resolve, reject) => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -45,7 +45,7 @@ export class NetGame {
       this.ws = ws;
       let joined = false, failure = null;
       ws.onopen = () => ws.send(JSON.stringify(opts.create
-        ? { t: 'create', name, bots: !!opts.create.bots, public: !!opts.create.public }
+        ? { t: 'create', name, bots: opts.create.bots, skill: opts.create.skill, public: !!opts.create.public }
         : { t: 'join', name, code: opts.code || '' }));
       ws.onmessage = (ev) => {
         const m = JSON.parse(ev.data);

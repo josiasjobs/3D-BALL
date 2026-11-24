@@ -151,7 +151,7 @@ function startTraining() {
   showPlaying();
 }
 
-// opts: { create: { bots, public } } para abrir uma sala, ou { code } para entrar numa
+// opts: { create: { bots (0 a 7), skill, public } } para abrir uma sala, ou { code } para entrar numa
 let connecting = false;
 async function startOnline(opts) {
   if (connecting) return;
@@ -194,6 +194,7 @@ function setMultiBusy(on) {
 
 // ---------- lista de salas públicas (só com o menu aberto na aba Multiplayer) ----------
 let roomTimer = 0;
+const SKILL_NAMES = { facil: 'fácil', normal: 'normal', dificil: 'difícil' };
 async function refreshRooms() {
   let rooms;
   try {
@@ -207,7 +208,7 @@ async function refreshRooms() {
   if (state !== 'menu') return;
   setList(rooms.length
     ? rooms.map((s) => `<li><span class="nm">Sala de ${esc(s.host)} <small>${esc(s.code)}</small></span>`
-      + `<small>${s.humans}/${s.slots} · ${s.bots ? 'com bots' : 'sem bots'}</small>`
+      + `<small>${s.humans}/${s.slots} · ${s.bots ? `${s.bots} bot${s.bots > 1 ? 's' : ''} (${SKILL_NAMES[s.skill] || 'normal'})` : 'sem bots'}</small>`
       + `<button type="button" data-code="${esc(s.code)}" ${s.humans >= s.slots || connecting ? 'disabled' : ''}>Entrar</button></li>`).join('')
     : '<li class="empty">Nenhuma sala pública aberta.</li>');
 }
@@ -277,7 +278,13 @@ input.onLockChange = (locked) => {
 $('form').addEventListener('submit', (e) => { e.preventDefault(); if (!multiOpen()) startTraining(); });
 $('tabSolo').addEventListener('click', () => showTab(false));
 $('tabMulti').addEventListener('click', () => showTab(true));
-$('create').addEventListener('click', () => startOnline({ create: { bots: $('netBots').value === '1', public: $('roomVis').value === '1' } }));
+$('create').addEventListener('click', () => startOnline({
+  create: { bots: Number($('netBots').value), skill: $('netSkill').value, public: $('roomVis').value === '1' },
+}));
+// dificuldade só faz sentido com bots
+const syncNetSkill = () => hud.show('netSkillBox', $('netBots').value !== '0');
+$('netBots').addEventListener('change', syncNetSkill);
+syncNetSkill();
 $('joinCode').addEventListener('click', joinByCode);
 // código colado com espaços ou em minúsculas: normaliza enquanto digita (o campo aceita mais que 5 para não cortar a colagem)
 $('code').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/\s/g, '').slice(0, 5); });

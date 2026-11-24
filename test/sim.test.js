@@ -165,13 +165,13 @@ test('sala: fim de partida, intervalo e nova partida mantendo os jogadores', () 
 test('sala sem bots: só os humanos jogam, e a escolha é de quem abre a sala', () => {
   const room = new Room({ slots: 4 });
   const a = fakeConn(), b = fakeConn();
-  assert.equal(room.join(a, 'A', { bots: false }), 0);
-  assert.equal(room.useBots, false);
-  assert.equal(a.msgs.find((m) => m.t === 'welcome').bots, false);
+  assert.equal(room.join(a, 'A', { bots: 0 }), 0);
+  assert.equal(room.botCount, 0);
+  assert.equal(a.msgs.find((m) => m.t === 'welcome').bots, 0);
   assert.deepEqual(room.game.ranking().map((p) => p.name), ['A']);
   // o segundo pede bots, mas a sala já está aberta sem
-  assert.equal(room.join(b, 'B', { bots: true }), 1);
-  assert.equal(room.useBots, false);
+  assert.equal(room.join(b, 'B', { bots: 3 }), 1);
+  assert.equal(room.botCount, 0);
   for (let i = 0; i < 120; i++) room.tick();
   const snap = a.msgs.filter((m) => m.t === 'snap').at(-1);
   assert.deepEqual(snap.p.map((p) => (p[7] & 16) !== 0), [false, false, true, true]);
@@ -182,7 +182,54 @@ test('sala sem bots: só os humanos jogam, e a escolha é de quem abre a sala', 
   assert.equal(room.game.ranking().length, 1);
   // sala esvazia e o próximo a abrir escolhe de novo
   room.leave(0);
-  assert.equal(room.join(b, 'B', { bots: true }), 0);
-  assert.equal(room.useBots, true);
+  assert.equal(room.join(b, 'B', { bots: 3 }), 0);
+  assert.equal(room.botCount, 3);
   assert.equal(room.game.ranking().length, 4);
+});
+
+const botIds = (room) => room.bots.map((b, i) => (b ? i : -1)).filter((i) => i >= 0);
+
+test('sala com quantidade de bots e dificuldade escolhidas por quem abre', () => {
+  const room = new Room({ slots: 8 });
+  const a = fakeConn();
+  room.join(a, 'A', { bots: 3, skill: 'dificil' });
+  const w = a.msgs.find((m) => m.t === 'welcome');
+  assert.equal(w.bots, 3);
+  assert.equal(w.skill, 'dificil');
+  assert.equal(botIds(room).length, 3);
+  assert.ok(botIds(room).every((i) => room.bots[i].skill === new BotBrain(room.game, room.nav, i, 'dificil').skill));
+  assert.equal(room.game.ranking().length, 4);
+  assert.equal(w.players.filter((p) => p.out).length, 4);
+});
+
+test('sala: quantidade e dificuldade inválidas viram valores seguros', () => {
+  const r1 = new Room({ slots: 4 });
+  r1.join(fakeConn(), 'A', { bots: 99, skill: 'impossivel' });
+  assert.equal(r1.botCount, 3);
+  assert.equal(r1.skill, 'normal');
+  const r2 = new Room({ slots: 4 });
+  r2.join(fakeConn(), 'A', { bots: -2 });
+  assert.equal(r2.botCount, 0);
+  const r3 = new Room({ slots: 4 });
+  r3.join(fakeConn(), 'A', { bots: '2' });
+  assert.equal(r3.botCount, 3, 'não-número usa o padrão (todas as vagas)');
+});
+
+test('sala: humano ocupa vaga vazia antes de tirar um bot, e o bot volta quando ele sai', () => {
+  const room = new Room({ slots: 4 });
+  room.join(fakeConn(), 'A', { bots: 2 });
+  assert.equal(botIds(room).length, 2);
+  const idB = room.join(fakeConn(), 'B');
+  assert.equal(room.bots[idB], null);
+  assert.equal(botIds(room).length, 2, 'B entrou na vaga vazia');
+  assert.equal(room.game.ranking().length, 4);
+  const idC = room.join(fakeConn(), 'C');
+  assert.ok(idC >= 0, 'sala cheia de bots ainda aceita humano');
+  assert.equal(botIds(room).length, 1, 'C entrou no lugar de um bot');
+  room.leave(idC);
+  assert.equal(botIds(room).length, 2, 'o bot volta');
+  assert.equal(room.game.players[idC].out, false);
+  room.leave(idB);
+  assert.equal(botIds(room).length, 2, 'não passa de 2 bots');
+  assert.equal(room.game.ranking().length, 3);
 });

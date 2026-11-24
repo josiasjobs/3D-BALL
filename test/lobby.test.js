@@ -41,9 +41,9 @@ test('lobby: código inexistente e sala cheia', () => {
 
 test('lobby: sala privada fica fora da lista pública', () => {
   const lobby = new Lobby();
-  const pub = lobby.create(fakeConn(), 'Ana', { isPublic: true, bots: true }).room;
+  const pub = lobby.create(fakeConn(), 'Ana', { isPublic: true, bots: 3, skill: 'facil' }).room;
   lobby.create(fakeConn(), 'Bia', { isPublic: false });
-  assert.deepEqual(lobby.list(), [{ code: pub.code, host: 'Ana', humans: 1, slots: 8, bots: true }]);
+  assert.deepEqual(lobby.list(), [{ code: pub.code, host: 'Ana', humans: 1, slots: 8, bots: 3, skill: 'facil' }]);
 });
 
 test('lobby: nome do anfitrião é limpo como o do jogador', () => {

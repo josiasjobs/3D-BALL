@@ -195,7 +195,14 @@
             <select id="roomVis"><option value="1" selected>Pública</option><option value="0">Privada (só com código)</option></select>
           </label>
           <label>Bots
-            <select id="netBots"><option value="1" selected>Com bots</option><option value="0">Sem bots</option></select>
+            <select id="netBots">
+              <option value="0">Sem bots</option><option value="1">1 bot</option><option value="2">2 bots</option>
+              <option value="3">3 bots</option><option value="4">4 bots</option><option value="5">5 bots</option>
+              <option value="6">6 bots</option><option value="7" selected>7 bots</option>
+            </select>
+          </label>
+          <label id="netSkillBox">Dificuldade
+            <select id="netSkill"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select>
           </label>
         </div>
         <div class="btns"><button class="go" type="button" id="create">Criar sala</button></div>

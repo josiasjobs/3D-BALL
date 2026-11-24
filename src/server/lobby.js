@@ -26,12 +26,12 @@ export class Lobby {
   }
 
   // Abre uma sala nova com quem criou dentro. Devolve { room, id } ou { error: 'limit' }.
-  create(conn, name, { bots = true, isPublic = true } = {}) {
+  create(conn, name, { bots, skill, isPublic = true } = {}) {
     if (this.rooms.size >= this.maxRooms) return { error: 'limit' };
     const room = new Room(this.roomOpts);
     room.code = this.newCode(); room.isPublic = !!isPublic; room.host = cleanName(name, 'Anônimo');
     this.rooms.set(room.code, room);
-    const id = room.join(conn, name, { bots });
+    const id = room.join(conn, name, { bots, skill });
     return { room, id };
   }
 
@@ -52,7 +52,7 @@ export class Lobby {
   list() {
     const out = [];
     for (const r of this.rooms.values()) {
-      if (r.isPublic) out.push({ code: r.code, host: r.host, humans: r.humans, slots: r.slots.length, bots: r.useBots });
+      if (r.isPublic) out.push({ code: r.code, host: r.host, humans: r.humans, slots: r.slots.length, bots: r.botCount, skill: r.skill });
     }
     return out;
   }

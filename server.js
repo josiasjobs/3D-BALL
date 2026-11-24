@@ -58,7 +58,7 @@ wss.on('connection', (ws) => {
     if (!m || typeof m !== 'object') return;
     if ((m.t === 'create' || m.t === 'join') && !room) {
       const r = m.t === 'create'
-        ? lobby.create(conn, m.name, { bots: m.bots !== false, isPublic: m.public !== false })
+        ? lobby.create(conn, m.name, { bots: m.bots, skill: m.skill, isPublic: m.public !== false })
         : lobby.join(conn, m.name, m.code);
       if (r.error) { conn.send(JSON.stringify({ t: 'error', reason: r.error })); ws.close(); return; }
       room = r.room; id = r.id;

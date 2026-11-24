@@ -3,7 +3,7 @@
 // com um método send(texto), o que permite testar sem rede.
 import { Game, CFG } from '../sim/game.js';
 import { Nav } from '../sim/nav.js';
-import { BotBrain } from '../sim/bot.js';
+import { BotBrain, SKILLS } from '../sim/bot.js';
 import { BOT_NAMES, PLAYER_COLORS } from '../sim/roster.js';
 
 export const TICK = 1 / 60;
@@ -21,7 +21,8 @@ export function cleanName(name, fallback) {
 export class Room {
   constructor({ slots = 8, matchTime = CFG.matchTime, skill = 'normal' } = {}) {
     this.matchTime = matchTime; this.skill = skill;
-    this.useBots = true; // quem abre a sala (primeiro a entrar) escolhe
+    // quem abre a sala (primeiro a entrar) escolhe quantos bots (0 a vagas-1) e a dificuldade deles
+    this.botCount = slots - 1;
     this.code = ''; this.isPublic = true; this.host = ''; // preenchidos pelo Lobby
     this.slots = [];
     for (let i = 0; i < slots; i++) this.slots.push({ name: '', color: PLAYER_COLORS[i % PLAYER_COLORS.length], conn: null });
@@ -40,8 +41,8 @@ export class Room {
 
   roster() {
     return {
-      players: this.slots.map((s) => ({ name: s.name, color: s.color, isBot: !s.conn, out: !s.conn && !this.useBots })),
-      matchTime: this.matchTime, bots: this.useBots, code: this.code, public: this.isPublic,
+      players: this.slots.map((s, id) => ({ name: s.name, color: s.color, isBot: !s.conn, out: !s.conn && !this.bots[id] })),
+      matchTime: this.matchTime, bots: this.botCount, skill: this.skill, code: this.code, public: this.isPublic,
     };
   }
 
@@ -55,25 +56,49 @@ export class Room {
     if (!this.nav) this.nav = new Nav(this.game.map);
     this.bots = []; this.queues = []; this.last = []; this.cmds = [];
     this.slots.forEach((s, id) => {
-      const p = this.game.addPlayer({ name: s.name, isBot: !s.conn, color: s.color });
-      const bot = !s.conn && this.useBots;
-      if (!s.conn && !this.useBots) this.game.setOut(p, true);
-      this.bots[id] = bot ? new BotBrain(this.game, this.nav, id, this.skill) : null;
-      this.queues[id] = []; this.last[id] = EMPTY;
+      this.game.addPlayer({ name: s.name, isBot: !s.conn, color: s.color });
+      this.bots[id] = null; this.queues[id] = []; this.last[id] = EMPTY;
     });
+    this.assignBots();
     this.phase = 'playing'; this.wait = 0; this.ticks = 0; this.pendingEvents = [];
     this.broadcast({ t: 'start', ...this.roster() });
   }
 
-  // Jogador entra no lugar de um bot. Devolve o id da vaga, ou -1 se a sala está cheia.
-  // Quem entra numa sala vazia decide se ela tem bots; a escolha vale até a sala esvaziar.
-  join(conn, name, { bots = true } = {}) {
-    const id = this.slots.findIndex((s) => !s.conn);
-    if (id < 0) return -1;
+  // Vagas sem humano: as do fim viram bots até a quantidade escolhida, as outras ficam de fora.
+  // Quem já é bot continua bot (não troca de vaga à toa).
+  assignBots() {
+    const free = [];
+    this.slots.forEach((s, id) => { if (!s.conn) free.push(id); });
+    const want = Math.min(this.botCount, free.length);
+    const keep = free.filter((id) => this.bots[id]).slice(0, want);
+    const chosen = new Set(keep);
+    for (let i = free.length - 1; i >= 0 && chosen.size < want; i--) chosen.add(free[i]); // bots no fim, humanos no começo
+    for (const id of free) {
+      const p = this.game.players[id];
+      if (chosen.has(id)) {
+        if (this.bots[id]) continue;
+        this.bots[id] = new BotBrain(this.game, this.nav, id, this.skill);
+        p.isBot = true;
+        if (p.out) { this.game.setOut(p, false); if (!this.game.ended) this.game.respawn(p); }
+      } else {
+        this.bots[id] = null;
+        this.game.setOut(p, true);
+      }
+    }
+  }
+
+  // Jogador entra numa vaga vazia ou, se não houver, no lugar de um bot. Devolve o id, ou -1 se só há humanos.
+  // Quem entra numa sala vazia decide quantos bots ela tem e a dificuldade; vale até a sala esvaziar.
+  join(conn, name, { bots, skill } = {}) {
+    if (this.slots.every((s) => s.conn)) return -1;
     if (this.humans === 0) {
-      this.useBots = !!bots;
+      const max = this.slots.length - 1;
+      this.botCount = Number.isFinite(bots) ? Math.max(0, Math.min(max, Math.floor(bots))) : max;
+      this.skill = Object.hasOwn(SKILLS, skill) ? skill : 'normal';
       this.newMatch(); // sala estava parada: começa uma partida nova já com a escolha
     }
+    const free = this.slots.map((s, i) => i).filter((i) => !this.slots[i].conn);
+    const id = free.find((i) => !this.bots[i]) ?? free[0];
     const slot = this.slots[id];
     slot.conn = conn;
     slot.name = cleanName(name, `Jogador ${id + 1}`);
@@ -82,6 +107,7 @@ export class Room {
     p.score = p.hits = p.kos = p.deaths = p.thrown = 0;
     this.bots[id] = null; this.queues[id] = []; this.last[id] = EMPTY;
     if (!this.game.ended) this.game.respawn(p);
+    this.assignBots();
     conn.send(JSON.stringify({ t: 'welcome', id, ...this.roster() }));
     for (const s of this.slots) if (s.conn && s.conn !== conn) s.conn.send(JSON.stringify({ t: 'roster', ...this.roster() }));
     return id;
@@ -95,8 +121,8 @@ export class Room {
     slot.name = this.freeBotName();
     const p = this.game.players[id];
     p.name = slot.name; p.isBot = true;
-    if (this.useBots) this.bots[id] = new BotBrain(this.game, this.nav, id, this.skill);
-    else this.game.setOut(p, true);
+    this.game.setOut(p, true); // a vaga só volta a jogar se ainda faltar bot
+    this.assignBots();
     this.broadcast({ t: 'roster', ...this.roster() });
   }
 

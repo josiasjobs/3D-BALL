@@ -58,11 +58,12 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - `window.__tinta` expõe `game`, `state`, `net` e `input` para depuração e testes no navegador.
 - Rede: várias salas de 8 vagas em `/ws`, mensagens JSON. Cada sala tem um código de 5 letras (`CODE_CHARS`, sem 0/O, 1/I/L);
   pública aparece em `GET /api/rooms`, privada só por código. A sala é apagada quando o último humano sai; máximo `MAX_ROOMS`.
-  Cliente manda `create` (`name`, `bots`, `public`) ou `join` (`name`, `code`), depois um `cmd` (com `seq`) por tick;
-  servidor responde `welcome` (com `code`, `public`) ou `error` (`reason`: `notfound`/`full`/`limit`), `roster` (alguém entrou/saiu),
+  Cliente manda `create` (`name`, `bots`, `skill`, `public`) ou `join` (`name`, `code`), depois um `cmd` (com `seq`) por tick;
+  servidor responde `welcome` (com `code`, `public`, `bots`, `skill`) ou `error` (`reason`: `notfound`/`full`/`limit`), `roster` (alguém entrou/saiu),
   `start` (nova partida) e `snap` 30x/s com estado + eventos. Quem entra assume a vaga de um bot; quem sai devolve a vaga a um bot.
-- Bots online são opcionais: quem cria a sala escolhe (`create` com `bots`), e vale até a sala esvaziar.
-  Sem bots, as vagas livres ficam com `player.out = true` (não jogam, não aparecem, fora do placar).
+- Bots online: quem cria a sala escolhe quantos (`create` com `bots` de 0 a 7) e a dificuldade (`skill`), e vale até a sala
+  esvaziar. `Room.assignBots()` põe os bots nas últimas vagas livres; as demais vagas livres ficam com `player.out = true`
+  (não jogam, não aparecem, fora do placar). Humano entra numa vaga vazia; se não houver, no lugar de um bot (que volta quando ele sai).
 - O jogador local online é previsto no cliente com `Game.movePlayer`/`chargeStep` (os mesmos do servidor) e reconciliado
   a cada `snap` pelo `ack`. Mudou a física do jogador? Mude só nesses métodos, senão cliente e servidor divergem.
 - `NetGame` e `Game` precisam expor os mesmos campos que render e HUD leem (`players`, `balloons`, `bags`, `shirts`,
