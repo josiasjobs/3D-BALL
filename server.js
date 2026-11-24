@@ -25,7 +25,9 @@ const TYPES = {
 const lobby = new Lobby();
 
 const server = http.createServer(async (req, res) => {
-  let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let rel;
+  try { rel = decodeURIComponent(new URL(req.url, 'http://x').pathname); }
+  catch { res.writeHead(400).end(); return; } // URL malformada não pode derrubar o servidor (e todas as salas)
   if (rel === '/api/rooms') { // salas públicas para a lista do menu
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(lobby.list()));

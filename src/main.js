@@ -137,6 +137,7 @@ function showPlaying() {
 }
 
 function startTraining() {
+  if (connecting) return; // conectando numa sala: não começa outra partida por baixo
   initAudio();
   leaveOnline();
   newGame({
@@ -188,7 +189,7 @@ async function startOnline(opts) {
 }
 
 function setMultiBusy(on) {
-  for (const b of document.querySelectorAll('#multi button')) b.disabled = on;
+  for (const b of document.querySelectorAll('#multi button, .tabs button, #play')) b.disabled = on;
 }
 
 // ---------- lista de salas públicas (só com o menu aberto na aba Multiplayer) ----------
@@ -225,6 +226,7 @@ function startRoomList() {
 function stopRoomList() { clearInterval(roomTimer); roomTimer = 0; }
 
 function showTab(multi) {
+  if (connecting) return;
   $('tabSolo').setAttribute('aria-selected', String(!multi));
   $('tabMulti').setAttribute('aria-selected', String(multi));
   hud.show('solo', !multi); hud.show('multi', multi);
@@ -277,6 +279,8 @@ $('tabSolo').addEventListener('click', () => showTab(false));
 $('tabMulti').addEventListener('click', () => showTab(true));
 $('create').addEventListener('click', () => startOnline({ create: { bots: $('netBots').value === '1', public: $('roomVis').value === '1' } }));
 $('joinCode').addEventListener('click', joinByCode);
+// código colado com espaços ou em minúsculas: normaliza enquanto digita (o campo aceita mais que 5 para não cortar a colagem)
+$('code').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/\s/g, '').slice(0, 5); });
 $('code').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); joinByCode(); } });
 $('roomList').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-code]');
