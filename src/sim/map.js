@@ -19,7 +19,20 @@ function box(cx, cz, sx, sz, h, y0 = 0, kind = 'wall', extra = null) {
 
 const QUAD_COLORS = ['red', 'yellow', 'green', 'blue'];
 
-export function buildMap() {
+// Mapas disponíveis (o primeiro é o padrão).
+export const MAPS = [
+  { id: 'praca', name: 'Praça' },
+  { id: 'patio', name: 'Pátio de Cargas' },
+];
+
+// Monta o mapa pelo id; id desconhecido cai no padrão.
+export function buildMap(id = 'praca') {
+  const m = id === 'patio' ? buildPatio() : buildPraca();
+  return { ...m, id: id === 'patio' ? 'patio' : 'praca' };
+}
+
+// Ferramentas de montagem comuns aos mapas.
+function builder() {
   const boxes = [];
   const add = (...a) => boxes.push(box(...a));
   // Espelha uma peça nos 4 quadrantes.
@@ -38,14 +51,21 @@ export function buildMap() {
       add(cx, cz, 2.2, Wd - 0.2, 0.6, 1.0, 'carTop');
     }
   };
-
   // Muros do perímetro
-  const W = HALF * 2 + 2;
-  add(0, HALF + 0.5, W, 1, 3, 0, 'border');
-  add(0, -HALF - 0.5, W, 1, 3, 0, 'border');
-  add(HALF + 0.5, 0, 1, W, 3, 0, 'border');
-  add(-HALF - 0.5, 0, 1, W, 3, 0, 'border');
+  const border = () => {
+    const W = HALF * 2 + 2;
+    add(0, HALF + 0.5, W, 1, 3, 0, 'border');
+    add(0, -HALF - 0.5, W, 1, 3, 0, 'border');
+    add(HALF + 0.5, 0, 1, W, 3, 0, 'border');
+    add(-HALF - 0.5, 0, 1, W, 3, 0, 'border');
+  };
+  return { boxes, add, quad, car, border };
+}
 
+// Praça: cruzamento de ruas aberto, com um forte elevado no centro.
+function buildPraca() {
+  const { boxes, add, quad, car, border } = builder();
+  border();
   // Forte central: plataforma elevada com escadas nos lados +x e -x
   add(0, 0, 8, 8, 1.8, 0, 'fort');
   for (const s of [1, -1]) {
@@ -101,6 +121,57 @@ export function buildMap() {
     [10.5, 0, 21], [-10.5, 0, 21], [10.5, 0, -21], [-10.5, 0, -21],
   ];
 
+  return { boxes, spawns, bagSpots, shirtSpots, half: HALF };
+}
+
+
+// Pátio de Cargas: chão tomado por contêineres, caixas, carros e caçambas; caixa-d'água no centro.
+// Combate de perto, visão curta. Montado no quadrante +x/+z e espelhado nos outros três.
+// Corredores com pelo menos 2 m; peças baixas encostadas nos contêineres para não criar frestas.
+function buildPatio() {
+  const { boxes, add, quad, car, border } = builder();
+  border();
+
+  // Caixa-d'água no centro: alta demais para subir
+  add(0, 0, 5, 5, 8, 0, 'tower');
+
+  // Contêineres (2,6 m de altura): [cx, cz, sx, sz]
+  for (const [cx, cz, sx, sz] of [
+    [9, 5, 2.4, 6], [4.5, 10.5, 6, 2.4], [17, 9, 6, 2.4], [22, 4, 2.4, 6],
+    [9, 18, 2.4, 6], [16, 16, 6, 2.4], [21.5, 21, 6, 2.4], [15, 24, 2.4, 6], [4, 21, 6, 2.4],
+  ]) quad(cx, cz, sx, sz, 2.6, 0, 'container');
+
+  // Caixotes baixos (1 m, dá para pular) encostados nos contêineres
+  quad(4.5, 12.4, 1.2, 1.4, 1.0, 0, 'crate');
+  quad(17, 11, 1.4, 1.6, 1.0, 0, 'crate');
+  quad(9, 21.8, 1.4, 1.6, 1.0, 0, 'crate');
+  quad(21.6, 18.9, 1.2, 1.8, 1.0, 0, 'crate');
+
+  // Lixeiras e caçambas
+  quad(24, 10, 0.9, 0.9, 1.2, 0, 'trash');
+  quad(10.65, 18, 0.9, 0.9, 1.2, 0, 'trash');
+  quad(29.15, 8, 1.7, 2.8, 1.6, 0, 'dumpster');
+
+  // Carros parados
+  const models = ['car_stationwagon', 'car_sedan', 'car_hatchback', 'car_taxi'];
+  let q = 0;
+  for (const mx of [1, -1]) for (const mz of [1, -1]) {
+    car(14 * mx, 3.5 * mz, 'x', models[q % 4]);
+    car(26 * mx, 17 * mz, 'z', models[(q + 2) % 4]);
+    q++;
+  }
+
+  const spawns = [
+    [26, 26], [-26, -26], [26, -26], [-26, 26],
+    [0, 26], [0, -26], [26, 0], [-26, 0],
+  ];
+  const bagSpots = [
+    [12, 0, 12], [-12, 0, 12], [12, 0, -12], [-12, 0, -12],
+    [0, 0, 13], [0, 0, -13],
+  ];
+  const shirtSpots = [
+    [18, 0, 12.5], [-18, 0, 12.5], [18, 0, -12.5], [-18, 0, -12.5],
+  ];
   return { boxes, spawns, bagSpots, shirtSpots, half: HALF };
 }
 

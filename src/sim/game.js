@@ -31,8 +31,8 @@ export const throwPower = (charge) => CFG.minPow + (CFG.maxPow - CFG.minPow) * c
 const EMPTY_CMD = { mx: 0, mz: 0, yaw: 0, pitch: 0, jump: false, fire: false };
 
 export class Game {
-  constructor({ seed = 1, matchTime = CFG.matchTime } = {}) {
-    this.map = buildMap();
+  constructor({ seed = 1, matchTime = CFG.matchTime, map = 'praca' } = {}) {
+    this.map = buildMap(map);
     this.rng = mulberry32(seed);
     this.players = [];
     this.balloons = [];
