@@ -2,10 +2,16 @@
 import { CFG, throwPower } from './game.js';
 import { clearLine } from './map.js';
 
+// Níveis dos bots. errYaw/errPitch: erro de mira (rad); react: segundos vendo o alvo antes de armar;
+// pause: espera entre arremessos; lead: quanto prevê o movimento do alvo (0 a 1); view: distância
+// em que enxerga alguém (m); turn: velocidade de virar a mira (rad/s); strafe: quanto anda de lado
+// no combate (0 a 1); dodge: chance de desviar de uma bexiga vindo na sua direção;
+// near/far: distância que tenta manter do alvo no combate (perto = mais acertos);
+// mob: fração da velocidade com que se mexe no combate (1 = correndo, menor = alvo mais fácil).
 export const SKILLS = {
-  facil: { errYaw: 0.1, errPitch: 0.07, react: 0.9, pause: 1.3, lead: 0.5 },
-  normal: { errYaw: 0.06, errPitch: 0.04, react: 0.5, pause: 0.8, lead: 0.8 },
-  dificil: { errYaw: 0.03, errPitch: 0.022, react: 0.25, pause: 0.45, lead: 1 },
+  facil: { errYaw: 0.2, errPitch: 0.12, react: 1.3, pause: 2, lead: 0.2, view: 18, turn: 3, strafe: 0.35, dodge: 0, near: 9, far: 16, mob: 0.4 },
+  normal: { errYaw: 0.15, errPitch: 0.09, react: 1, pause: 1.6, lead: 0.35, view: 22, turn: 4, strafe: 0.5, dodge: 0, near: 8, far: 14, mob: 0.55 },
+  dificil: { errYaw: 0.02, errPitch: 0.015, react: 0.2, pause: 0.4, lead: 1, view: 34, turn: 10, strafe: 1, dodge: 0.75, near: 4, far: 9, mob: 1 },
 };
 
 const wrap = (a) => {
@@ -38,6 +44,7 @@ export class BotBrain {
     this.holding = false; this.wantCharge = 0; this.holdT = 0; this.waitT = 0.5;
     this.errYaw = 0; this.errPitch = 0;
     this.stuckT = 0; this.sx = 0; this.sz = 0;
+    this.dodgeT = 0; this.dodgeX = 0; this.dodgeZ = 0; this.judged = new Set();
     this.synced = false;
   }
 
@@ -51,7 +58,7 @@ export class BotBrain {
   }
 
   pickTarget(p) {
-    let best = -1, bd = 30 * 30;
+    let best = -1, bd = this.skill.view ** 2;
     for (const o of this.game.players) {
       if (o === p || !o.alive) continue;
       let d = (o.x - p.x) ** 2 + (o.z - p.z) ** 2;
@@ -103,6 +110,28 @@ export class BotBrain {
     if (d < 0.05) { out[0] = 0; out[1] = 0; } else { out[0] = dx / d; out[1] = dz / d; }
   }
 
+  // Olha as bexigas dos outros: se uma vai passar perto em menos de 0,8 s, decide (uma vez por bexiga,
+  // com chance sk.dodge) dar um passo para o lado, saindo da linha dela.
+  watchBalloons(p, dt) {
+    this.dodgeT -= dt;
+    if (this.judged.size > 64) this.judged.clear();
+    for (const b of this.game.balloons) {
+      if (b.dead || b.owner === this.id || this.judged.has(b.id)) continue;
+      const rx = p.x - b.x, rz = p.z - b.z, v2 = b.vx * b.vx + b.vz * b.vz;
+      if (v2 < 1) continue;
+      const tc = (rx * b.vx + rz * b.vz) / v2; // instante de maior aproximação
+      if (tc <= 0 || tc > 0.8) continue;
+      const cx = rx - b.vx * tc, cz = rz - b.vz * tc; // onde ele fica em relação à trajetória
+      if (cx * cx + cz * cz > 1.6 * 1.6) continue;
+      this.judged.add(b.id);
+      if (this.game.rng() >= this.skill.dodge) continue;
+      const v = Math.sqrt(v2);
+      let nx = -b.vz / v, nz = b.vx / v; // perpendicular à bexiga, para o lado em que ele já está
+      if (nx * cx + nz * cz < 0) { nx = -nx; nz = -nz; }
+      this.dodgeX = nx; this.dodgeZ = nz; this.dodgeT = 0.4;
+    }
+  }
+
   think(dt) {
     const g = this.game, p = g.players[this.id], cmd = this.cmd, rng = g.rng, sk = this.skill;
     cmd.mx = 0; cmd.mz = 0; cmd.jump = false; cmd.fire = false;
@@ -129,10 +158,10 @@ export class BotBrain {
       this.strafeT -= dt;
       if (this.strafeT <= 0) { this.strafeT = 0.7 + rng() * 1.4; this.strafe = rng() < 0.5 ? -1 : 1; }
       const ux = (t.x - p.x) / (dist || 1), uz = (t.z - p.z) / (dist || 1);
-      const radial = dist > 13 ? 1 : dist < 6 ? -1 : 0;
-      move[0] = ux * radial - uz * this.strafe * 0.9;
-      move[1] = uz * radial + ux * this.strafe * 0.9;
-      const ml = Math.hypot(move[0], move[1]) || 1;
+      const radial = dist > sk.far ? 1 : dist < sk.near ? -1 : 0;
+      move[0] = ux * radial - uz * this.strafe * sk.strafe;
+      move[1] = uz * radial + ux * this.strafe * sk.strafe;
+      const ml = (Math.hypot(move[0], move[1]) || 1) / sk.mob;
       move[0] /= ml; move[1] /= ml;
       this.path = null;
       if (rng() < 0.004) cmd.jump = true;
@@ -145,6 +174,10 @@ export class BotBrain {
       }
       this.steerTo(p, this.roam[0], this.roam[1], dt, move);
     }
+
+    // esquiva: passo para o lado quando uma bexiga vem na direção dele
+    if (sk.dodge > 0) this.watchBalloons(p, dt);
+    if (this.dodgeT > 0) { move[0] = this.dodgeX; move[1] = this.dodgeZ; this.path = null; }
 
     // mira
     let wantYaw = cmd.yaw, wantPitch = 0, canShoot = false;
@@ -172,9 +205,9 @@ export class BotBrain {
     }
 
     const dy = wrap(wantYaw - cmd.yaw);
-    cmd.yaw = wrap(cmd.yaw + Math.max(-7 * dt, Math.min(7 * dt, dy)));
-    const dp = wantPitch - cmd.pitch;
-    cmd.pitch += Math.max(-5 * dt, Math.min(5 * dt, dp));
+    cmd.yaw = wrap(cmd.yaw + Math.max(-sk.turn * dt, Math.min(sk.turn * dt, dy)));
+    const dp = wantPitch - cmd.pitch, pt = sk.turn * 0.7 * dt;
+    cmd.pitch += Math.max(-pt, Math.min(pt, dp));
 
     // arremesso
     this.waitT -= dt;

@@ -1,14 +1,15 @@
 # Tinta Neles! (3D-BALL)
 
 Jogo 3D em primeira pessoa para navegador (PC): guerra de bexigas de tinta, todos contra todos.
-Tem dois modos: online (multiplayer, servidor autoritativo em Node; bots completam as vagas) e treino local só com bots.
+Tem dois modos: single player local (1 a 7 bots) e multiplayer (servidor autoritativo em Node, salas públicas ou privadas
+por código, com ou sem bots completando as vagas).
 Textos do jogo e comentários do código em português do Brasil.
 
 ## Stack
 - JavaScript puro em módulos ES, sem bundler e sem etapa de build.
 - Three.js (via npm, carregado por import map em `index.html` a partir de `node_modules/`).
 - `ws` (WebSocket) no servidor; o navegador usa o WebSocket nativo.
-- Node.js: `server.js` entrega os arquivos e hospeda a sala multiplayer; testes com `node:test`.
+- Node.js: `server.js` entrega os arquivos e hospeda as salas multiplayer; testes com `node:test`.
 
 ## Comandos
 - `npm install` — instala Three.js e `ws`.
@@ -18,16 +19,21 @@ Textos do jogo e comentários do código em português do Brasil.
 Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem o servidor.
 
 ## Estrutura
-- `index.html` — canvas, HUD, telas (menu, pausa, fim) e todo o CSS.
-- `src/main.js` — laço principal (passo fixo de 60 Hz), estados da tela e os dois modos (treino local / online).
+- `index.html` — canvas, HUD, telas (menu com abas Single player / Multiplayer, pausa, fim) e todo o CSS.
+- `src/main.js` — laço principal (passo fixo de 60 Hz), estados da tela, os dois modos (single player local / multiplayer)
+  e a lista de salas públicas do menu (busca `/api/rooms` a cada 3 s só com o menu na aba Multiplayer).
 - `src/net.js` — `NetGame`: cliente de rede que imita a interface de `Game` para render/HUD/som.
+- `src/server/lobby.js` — `Lobby`: salas abertas por código (`Map`), criar/entrar/sair, lista das públicas, limite de salas.
 - `src/server/room.js` — `Room`: sala autoritativa (simulação, bots nas vagas livres, fila de comandos, envio de estado).
   Não conhece WebSocket (recebe objetos com `send(texto)`), por isso é testável sem rede. `server.js` faz a ponte.
 - `src/sim/` — regras do jogo, **sem Three.js e sem DOM**:
   - `map.js` — arena (caixas AABB), spawns, pontos de sacola, paleta, interseção segmento×caixa.
   - `game.js` — `Game`: jogadores, bexigas, sacolas, pontuação, fila de eventos; constantes em `CFG`.
   - `nav.js` — grade de navegação + A* para os bots.
-  - `bot.js` — `BotBrain`: IA que devolve um comando por tick.
+  - `bot.js` — `BotBrain`: IA que devolve um comando por tick. Os níveis (`SKILLS`: fácil/normal/difícil) mudam mira,
+    reação, cadência, previsão, alcance de visão, giro, desvio lateral, esquiva de bexigas, distância de combate e
+    velocidade no combate (`mob`; o fácil anda devagar para ser fácil de acertar).
+    `test/skill.test.js` garante que os níveis continuam bem separados — ajustou `SKILLS`? Rode os testes.
   - `roster.js` — nomes de bots e cores dos jogadores.
 - `src/render/scene.js` — cena Three.js (luzes, manchas, partículas, sacolas, câmera).
 - `src/render/world.js` — cenário: veste cada caixa de colisão do mapa com um modelo KayKit e monta a cidade em volta.
@@ -39,7 +45,7 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - `assets/city/`, `assets/platformer/` — modelos glTF usados dos kits KayKit City Builder Bits e Platformer Pack
   (Kay Lousberg, CC0), copiados de `KayKit 1/` e `KayKit 2/`; o jogo só lê as cópias em `assets/`.
 - `src/input.js`, `src/hud.js`, `src/audio.js` — teclado/mouse, DOM do HUD, sons sintetizados em WebAudio.
-- `test/` — testes da simulação.
+- `test/` — testes da simulação, da sala/lobby e da diferença entre as dificuldades dos bots.
 
 ## Convenções e cuidados
 - `src/sim/` precisa continuar rodando em Node puro: nada de `window`, `document` ou `three` ali.
@@ -53,11 +59,14 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 - Colisão é toda por caixas alinhadas aos eixos; degraus de até `CFG.step` são subidos andando.
 - Os bots só navegam no nível do chão (não sobem no forte central).
 - `window.__tinta` expõe `game`, `state`, `net` e `input` para depuração e testes no navegador.
-- Rede: uma sala única de 8 vagas em `/ws`, mensagens JSON. Cliente manda `join` e um `cmd` (com `seq`) por tick;
-  servidor responde `welcome`/`full`, `roster` (alguém entrou/saiu), `start` (nova partida) e `snap` 30x/s com estado + eventos.
-  Quem entra assume a vaga de um bot; quem sai devolve a vaga a um bot. Sem humanos conectados a sala não roda.
-- Bots online são opcionais: quem entra numa sala vazia escolhe (`join` com `bots`), e vale até a sala esvaziar.
-  Sem bots, as vagas livres ficam com `player.out = true` (não jogam, não aparecem, fora do placar).
+- Rede: várias salas de 8 vagas em `/ws`, mensagens JSON. Cada sala tem um código de 5 letras (`CODE_CHARS`, sem 0/O, 1/I/L);
+  pública aparece em `GET /api/rooms`, privada só por código. A sala é apagada quando o último humano sai; máximo `MAX_ROOMS`.
+  Cliente manda `create` (`name`, `bots`, `skill`, `public`) ou `join` (`name`, `code`), depois um `cmd` (com `seq`) por tick;
+  servidor responde `welcome` (com `code`, `public`, `bots`, `skill`) ou `error` (`reason`: `notfound`/`full`/`limit`), `roster` (alguém entrou/saiu),
+  `start` (nova partida) e `snap` 30x/s com estado + eventos. Quem entra assume a vaga de um bot; quem sai devolve a vaga a um bot.
+- Bots online: quem cria a sala escolhe quantos (`create` com `bots` de 0 a 7) e a dificuldade (`skill`), e vale até a sala
+  esvaziar. `Room.assignBots()` põe os bots nas últimas vagas livres; as demais vagas livres ficam com `player.out = true`
+  (não jogam, não aparecem, fora do placar). Humano entra numa vaga vazia; se não houver, no lugar de um bot (que volta quando ele sai).
 - O jogador local online é previsto no cliente com `Game.movePlayer`/`chargeStep` (os mesmos do servidor) e reconciliado
   a cada `snap` pelo `ack`. Mudou a física do jogador? Mude só nesses métodos, senão cliente e servidor divergem.
 - `NetGame` e `Game` precisam expor os mesmos campos que render e HUD leem (`players`, `balloons`, `bags`, `shirts`,

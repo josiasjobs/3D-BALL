@@ -5,6 +5,11 @@ import { Game, CFG } from './sim/game.js';
 
 const STEP = 1 / 60;
 const SNAP_MS = 1000 / 30;
+const ERRORS = {
+  notfound: 'Sala não encontrada.',
+  full: 'A sala está cheia (8 jogadores).',
+  limit: 'O servidor já tem salas demais. Tente mais tarde.',
+};
 const lerp = (a, b, t) => a + (b - a) * t;
 const wrap = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
 
@@ -28,28 +33,32 @@ export class NetGame {
     this.events = [];
     this.timeLeft = 0; this.ended = false; this.wait = 0; this.endedAt = 0;
     this.localId = -1; this.seq = 0; this.pending = []; this.pred = null; this.snapAt = 0;
-    this.ws = null; this.bots = true;
+    this.ws = null; this.bots = true; this.code = ''; this.isPublic = true;
     this.onStart = null; this.onRoster = null; this.onClose = null; this.onLocalThrow = null;
   }
 
-  connect(name, bots = true) {
+  // opts: { create: { bots (0 a 7), skill, public } } para abrir uma sala, ou { code } para entrar numa.
+  connect(name, opts = {}) {
     return new Promise((resolve, reject) => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       const ws = new WebSocket(`${proto}://${location.host}/ws`);
       this.ws = ws;
-      let joined = false;
-      ws.onopen = () => ws.send(JSON.stringify({ t: 'join', name, bots }));
+      let joined = false, failure = null;
+      ws.onopen = () => ws.send(JSON.stringify(opts.create
+        ? { t: 'create', name, bots: opts.create.bots, skill: opts.create.skill, public: !!opts.create.public }
+        : { t: 'join', name, code: opts.code || '' }));
       ws.onmessage = (ev) => {
         const m = JSON.parse(ev.data);
         if (m.t === 'welcome') {
           this.localId = m.id;
           this.setRoster(m.players);
           this.timeLeft = m.matchTime;
-          this.bots = m.bots;
+          this.bots = m.bots; this.code = m.code; this.isPublic = m.public;
           joined = true;
           resolve();
-        } else if (m.t === 'full') {
-          reject(new Error('A sala está cheia (8 jogadores).'));
+        } else if (m.t === 'error') {
+          failure = new Error(ERRORS[m.reason] || 'Não foi possível entrar na sala.');
+          reject(failure);
         } else if (m.t === 'roster') {
           this.setRoster(m.players);
           if (this.onRoster) this.onRoster();
@@ -61,9 +70,9 @@ export class NetGame {
           this.onSnap(m);
         }
       };
-      ws.onerror = () => { if (!joined) reject(new Error('Não foi possível conectar ao servidor.')); };
+      ws.onerror = () => { if (!joined) reject(failure || new Error('Não foi possível conectar ao servidor.')); };
       ws.onclose = () => {
-        if (!joined) reject(new Error('Não foi possível conectar ao servidor.'));
+        if (!joined) reject(failure || new Error('Não foi possível conectar ao servidor.'));
         else if (this.onClose) this.onClose();
       };
     });

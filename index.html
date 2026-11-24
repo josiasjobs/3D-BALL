@@ -97,6 +97,22 @@
   button.go.alt:hover { background: var(--c5); }
   button.go:disabled { opacity: .55; cursor: default; background: #ddd; }
   .btns { display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .opts.one { grid-template-columns: 1fr; margin-bottom: 14px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 16px; border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; }
+  .tabs button { font: inherit; font-weight: 900; font-size: 17px; color: var(--ink); background: #fff; border: 0; padding: 10px; cursor: pointer; }
+  .tabs button + button { border-left: 3px solid var(--ink); }
+  .tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); }
+  #multi h3 { margin: 16px 0 8px; font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; text-align: left; }
+  #multi h3:first-child { margin-top: 0; }
+  .join { display: flex; gap: 10px; }
+  .join input { flex: 1; min-width: 0; font: inherit; font-size: 20px; font-weight: 900; letter-spacing: .3em; text-transform: uppercase; color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 6px 10px; }
+  .join button.go.alt { font-size: 16px; padding: 6px 18px; }
+  .rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 180px; overflow: auto; text-align: left; }
+  .rooms li { display: flex; align-items: center; gap: 10px; border: 2px solid var(--ink); border-radius: 10px; padding: 5px 6px 5px 10px; font-weight: 800; font-size: 15px; background: #fff; }
+  .rooms li .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rooms li small { opacity: .65; font-weight: 800; }
+  .rooms li button { font: inherit; font-weight: 900; font-size: 14px; color: var(--ink); background: var(--c3); border: 2px solid var(--ink); border-radius: 8px; padding: 3px 12px; cursor: pointer; }
+  .rooms li.empty { justify-content: center; font-weight: 700; opacity: .7; border-style: dashed; background: transparent; }
   .status { min-height: 20px; margin: 12px 0 0; font-size: 14px; font-weight: 800; color: #b3122f; }
   button.go:active { transform: translate(3px, 4px); box-shadow: 1px 1px 0 var(--ink); }
   :focus-visible { outline: 3px solid var(--c6); outline-offset: 2px; }
@@ -150,22 +166,54 @@
     <h1 id="title" aria-label="Tinta Neles!"></h1>
     <p class="tag">Guerra de bexigas de tinta. Todos contra todos.</p>
     <form id="form">
-      <div class="opts">
+      <div class="opts one">
         <label>Seu nome <input id="nick" maxlength="12" value="Você" autocomplete="off"></label>
-        <label>Bots (treino)
-          <select id="bots"><option value="3">3 bots</option><option value="5">5 bots</option><option value="7" selected>7 bots</option></select>
-        </label>
-        <label>Dificuldade (treino)
-          <select id="skill"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select>
-        </label>
-        <label>Bots (online)
-          <select id="netBots"><option value="1" selected>Com bots</option><option value="0">Sem bots</option></select>
-        </label>
       </div>
-      <div class="btns">
-        <button class="go" type="button" id="online">Jogar online</button>
-        <button class="go alt" type="submit">Treinar com bots</button>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tabSolo" aria-selected="true" aria-controls="solo">Single player</button>
+        <button type="button" role="tab" id="tabMulti" aria-selected="false" aria-controls="multi">Multiplayer</button>
       </div>
+      <section id="solo" role="tabpanel" aria-labelledby="tabSolo">
+        <div class="opts">
+          <label>Bots
+            <select id="bots">
+              <option value="1">1 bot</option><option value="2">2 bots</option><option value="3">3 bots</option>
+              <option value="4">4 bots</option><option value="5">5 bots</option><option value="6">6 bots</option>
+              <option value="7" selected>7 bots</option>
+            </select>
+          </label>
+          <label>Dificuldade
+            <select id="skill"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select>
+          </label>
+        </div>
+        <div class="btns"><button class="go" type="submit" id="play">Jogar</button></div>
+      </section>
+      <section id="multi" role="tabpanel" aria-labelledby="tabMulti" class="hidden">
+        <h3>Criar sala</h3>
+        <div class="opts">
+          <label>Visibilidade
+            <select id="roomVis"><option value="1" selected>Pública</option><option value="0">Privada (só com código)</option></select>
+          </label>
+          <label>Bots
+            <select id="netBots">
+              <option value="0">Sem bots</option><option value="1">1 bot</option><option value="2">2 bots</option>
+              <option value="3">3 bots</option><option value="4">4 bots</option><option value="5">5 bots</option>
+              <option value="6">6 bots</option><option value="7" selected>7 bots</option>
+            </select>
+          </label>
+          <label id="netSkillBox">Dificuldade
+            <select id="netSkill"><option value="facil">Fácil</option><option value="normal" selected>Normal</option><option value="dificil">Difícil</option></select>
+          </label>
+        </div>
+        <div class="btns"><button class="go" type="button" id="create">Criar sala</button></div>
+        <h3>Entrar com código</h3>
+        <div class="join">
+          <input id="code" maxlength="16" placeholder="ABCDE" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Código da sala">
+          <button class="go alt" type="button" id="joinCode">Entrar</button>
+        </div>
+        <h3>Salas públicas</h3>
+        <ul id="roomList" class="rooms"><li class="empty">Carregando…</li></ul>
+      </section>
       <p id="netStatus" class="status" role="status"></p>
     </form>
     <ul class="keys">
