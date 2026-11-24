@@ -25,11 +25,8 @@ function blankPlayer(id) {
 
 export class NetGame {
   constructor() {
-    this.helper = new Game(); // só para a física do jogador local e o mapa
-    this.map = this.helper.map;
     this.players = []; this.balloons = []; this.balloonById = new Map();
-    this.bags = this.map.bagSpots.map((s, id) => ({ id, x: s[0], y: s[1], z: s[2], active: true }));
-    this.shirts = this.map.shirtSpots.map((s, id) => ({ id, x: s[0], y: s[1], z: s[2], active: true }));
+    this.setMap('praca'); // o mapa de verdade chega no welcome
     this.events = [];
     this.timeLeft = 0; this.ended = false; this.wait = 0; this.endedAt = 0;
     this.localId = -1; this.seq = 0; this.pending = []; this.pred = null; this.snapAt = 0;
@@ -37,7 +34,15 @@ export class NetGame {
     this.onStart = null; this.onRoster = null; this.onClose = null; this.onLocalThrow = null;
   }
 
-  // opts: { create: { bots (0 a 7), skill, public } } para abrir uma sala, ou { code } para entrar numa.
+  // Mapa da sala: helper (física do jogador local), sacolas e roupas seguem o mapa.
+  setMap(id) {
+    this.helper = new Game({ map: id }); // só para a física do jogador local e o mapa
+    this.map = this.helper.map; this.mapId = this.map.id;
+    this.bags = this.map.bagSpots.map((s, i) => ({ id: i, x: s[0], y: s[1], z: s[2], active: true }));
+    this.shirts = this.map.shirtSpots.map((s, i) => ({ id: i, x: s[0], y: s[1], z: s[2], active: true }));
+  }
+
+  // opts: { create: { bots (0 a 7), skill, map, public } } para abrir uma sala, ou { code } para entrar numa.
   connect(name, opts = {}) {
     return new Promise((resolve, reject) => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -45,12 +50,13 @@ export class NetGame {
       this.ws = ws;
       let joined = false, failure = null;
       ws.onopen = () => ws.send(JSON.stringify(opts.create
-        ? { t: 'create', name, bots: opts.create.bots, skill: opts.create.skill, public: !!opts.create.public }
+        ? { t: 'create', name, bots: opts.create.bots, skill: opts.create.skill, map: opts.create.map, public: !!opts.create.public }
         : { t: 'join', name, code: opts.code || '' }));
       ws.onmessage = (ev) => {
         const m = JSON.parse(ev.data);
         if (m.t === 'welcome') {
           this.localId = m.id;
+          this.setMap(m.map);
           this.setRoster(m.players);
           this.timeLeft = m.matchTime;
           this.bots = m.bots; this.code = m.code; this.isPublic = m.public;

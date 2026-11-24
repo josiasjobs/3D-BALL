@@ -3,7 +3,7 @@
 import { Game } from './sim/game.js';
 import { Nav } from './sim/nav.js';
 import { BotBrain } from './sim/bot.js';
-import { PALETTE, buildMap } from './sim/map.js';
+import { PALETTE, buildMap, MAPS } from './sim/map.js';
 import { BOT_NAMES, PLAYER_COLORS } from './sim/roster.js';
 import { NetGame } from './net.js';
 import { Renderer } from './render/scene.js';
@@ -19,7 +19,9 @@ const canvas = $('c');
 const hud = new Hud();
 const input = new Input(canvas);
 
-let game, nav, bots = [], renderer, localId = -1;
+let game, bots = [], renderer, localId = -1;
+const navs = {}; // grade de navegação por mapa (cara de montar: guarda)
+const mapName = (id) => (MAPS.find((m) => m.id === id) || MAPS[0]).name;
 let net = null;         // NetGame quando online
 let state = 'menu';     // menu | playing | paused | ended
 let acc = 0, last = performance.now();
@@ -27,9 +29,9 @@ const cmds = [];
 const IDLE = { mx: 0, mz: 0, yaw: 0, pitch: 0, jump: false, fire: false };
 
 // ---------- partida local (treino e demonstração do menu) ----------
-function newGame({ withHuman, botCount, skill, name }) {
-  game = new Game({ seed: (Date.now() & 0xffffff) || 1 });
-  if (!nav) nav = new Nav(game.map);
+function newGame({ withHuman, botCount, skill, name, map }) {
+  game = new Game({ seed: (Date.now() & 0xffffff) || 1, map });
+  const nav = navs[game.map.id] || (navs[game.map.id] = new Nav(game.map));
   bots = [];
   localId = -1;
   if (withHuman) localId = game.addPlayer({ name: name || 'Você', color: PLAYER_COLORS[0] }).id;
@@ -144,6 +146,7 @@ function startTraining() {
     withHuman: true,
     botCount: Number($('bots').value),
     skill: $('skill').value,
+    map: $('map').value,
     name: $('nick').value.trim().slice(0, 12),
   });
   $('pauseTag').textContent = 'Clique para voltar à guerra.';
@@ -182,10 +185,10 @@ async function startOnline(opts) {
     if (state === 'ended') updateEndButton();
   };
   n.onClose = () => { toMenu(); $('netStatus').textContent = 'A conexão com o servidor caiu.'; };
-  $('pauseTag').textContent = `Sala ${n.code} (${n.isPublic ? 'pública' : 'privada'}). A partida continua rolando enquanto você está aqui.`;
+  $('pauseTag').textContent = `Sala ${n.code} (${n.isPublic ? 'pública' : 'privada'}) · ${mapName(n.mapId)}. A partida continua rolando enquanto você está aqui.`;
   showPlaying();
   if (!n.bots && game.ranking().length === 1) hud.message(`Sala ${n.code} sem bots: esperando outros jogadores`, 4);
-  else hud.message(`Sala ${n.code}${n.isPublic ? '' : ': passe o código para os amigos'}`, 4);
+  else hud.message(`Sala ${n.code} · ${mapName(n.mapId)}${n.isPublic ? '' : ': passe o código para os amigos'}`, 4);
 }
 
 function setMultiBusy(on) {
@@ -208,7 +211,7 @@ async function refreshRooms() {
   if (state !== 'menu') return;
   setList(rooms.length
     ? rooms.map((s) => `<li><span class="nm">Sala de ${esc(s.host)} <small>${esc(s.code)}</small></span>`
-      + `<small>${s.humans}/${s.slots} · ${s.bots ? `${s.bots} bot${s.bots > 1 ? 's' : ''} (${SKILL_NAMES[s.skill] || 'normal'})` : 'sem bots'}</small>`
+      + `<small>${s.humans}/${s.slots} · ${s.bots ? `${s.bots} bot${s.bots > 1 ? 's' : ''} (${SKILL_NAMES[s.skill] || 'normal'})` : 'sem bots'} · ${esc(mapName(s.map))}</small>`
       + `<button type="button" data-code="${esc(s.code)}" ${s.humans >= s.slots || connecting ? 'disabled' : ''}>Entrar</button></li>`).join('')
     : '<li class="empty">Nenhuma sala pública aberta.</li>');
 }
@@ -276,10 +279,12 @@ input.onLockChange = (locked) => {
 };
 
 $('form').addEventListener('submit', (e) => { e.preventDefault(); if (!multiOpen()) startTraining(); });
+// seletores de mapa montados da lista de mapas (o primeiro é o padrão)
+for (const sel of document.querySelectorAll('.mapSel')) sel.innerHTML = MAPS.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
 $('tabSolo').addEventListener('click', () => showTab(false));
 $('tabMulti').addEventListener('click', () => showTab(true));
 $('create').addEventListener('click', () => startOnline({
-  create: { bots: Number($('netBots').value), skill: $('netSkill').value, public: $('roomVis').value === '1' },
+  create: { bots: Number($('netBots').value), skill: $('netSkill').value, map: $('netMap').value, public: $('roomVis').value === '1' },
 }));
 // dificuldade só faz sentido com bots
 const syncNetSkill = () => hud.show('netSkillBox', $('netBots').value !== '0');

@@ -20,9 +20,11 @@ Abrir `index.html` direto do disco (`file://`) não funciona: módulos ES exigem
 
 ## Estrutura
 - `index.html` — canvas, HUD, telas (menu com abas Single player / Multiplayer, pausa, fim) e todo o CSS.
+  Os seletores de mapa (`.mapSel`) são preenchidos por `main.js` a partir de `MAPS`.
 - `src/main.js` — laço principal (passo fixo de 60 Hz), estados da tela, os dois modos (single player local / multiplayer)
   e a lista de salas públicas do menu (busca `/api/rooms` a cada 3 s só com o menu na aba Multiplayer).
 - `src/net.js` — `NetGame`: cliente de rede que imita a interface de `Game` para render/HUD/som.
+  O mapa da sala chega no `welcome` (`setMap`); quem entra usa o mapa da sala, não o do seu seletor.
 - `src/server/lobby.js` — `Lobby`: salas abertas por código (`Map`), criar/entrar/sair, lista das públicas, limite de salas.
 - `src/server/room.js` — `Room`: sala autoritativa (simulação, bots nas vagas livres, fila de comandos, envio de estado).
   Não conhece WebSocket (recebe objetos com `send(texto)`), por isso é testável sem rede. `server.js` faz a ponte.
