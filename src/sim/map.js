@@ -137,27 +137,27 @@ function buildPatio() {
 
   // Contêineres (2,6 m de altura): [cx, cz, sx, sz]
   for (const [cx, cz, sx, sz] of [
-    [9, 5, 2.4, 6], [4.5, 10.5, 6, 2.4], [17, 9, 6, 2.4], [22, 4, 2.4, 6],
-    [9, 18, 2.4, 6], [16, 16, 6, 2.4], [21.5, 21, 6, 2.4], [15, 24, 2.4, 6], [4, 21, 6, 2.4],
+    [9, 4.6, 2.4, 5.2], [4.5, 10.5, 6, 2.4], [17, 9, 6, 2.4], [23.4, 4, 2.4, 6],
+    [9, 18, 2.4, 6], [16, 16, 6, 2.4], [21.5, 21, 6, 2.4], [15, 24, 2.4, 6], [4.8, 21, 6, 2.4],
   ]) quad(cx, cz, sx, sz, 2.6, 0, 'container');
 
   // Caixotes baixos (1 m, dá para pular) encostados nos contêineres
   quad(4.5, 12.4, 1.2, 1.4, 1.0, 0, 'crate');
   quad(17, 11, 1.4, 1.6, 1.0, 0, 'crate');
-  quad(9, 21.8, 1.4, 1.6, 1.0, 0, 'crate');
+  quad(8.5, 21.8, 1.4, 1.6, 1.0, 0, 'crate'); // fecha o canto entre dois contêineres
   quad(21.6, 18.9, 1.2, 1.8, 1.0, 0, 'crate');
 
   // Lixeiras e caçambas
   quad(24, 10, 0.9, 0.9, 1.2, 0, 'trash');
-  quad(10.65, 18, 0.9, 0.9, 1.2, 0, 'trash');
+  quad(9, 14.55, 0.9, 0.9, 1.2, 0, 'trash');
   quad(29.15, 8, 1.7, 2.8, 1.6, 0, 'dumpster');
 
   // Carros parados
   const models = ['car_stationwagon', 'car_sedan', 'car_hatchback', 'car_taxi'];
   let q = 0;
   for (const mx of [1, -1]) for (const mz of [1, -1]) {
-    car(14 * mx, 3.5 * mz, 'x', models[q % 4]);
-    car(26 * mx, 17 * mz, 'z', models[(q + 2) % 4]);
+    car(14.6 * mx, 3.5 * mz, 'x', models[q % 4]);
+    car(26 * mx, 15 * mz, 'z', models[(q + 2) % 4]);
     q++;
   }
 

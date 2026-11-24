@@ -90,3 +90,25 @@ test('pátio: partida só com bots termina com pontos', () => {
   while (!g.ended) { for (const b of bots) cmds[b.id] = b.think(1 / 60); g.step(1 / 60, cmds); g.events.length = 0; }
   assert.ok(g.players.reduce((s, p) => s + p.score, 0) > 0);
 });
+
+// Distância no chão entre duas caixas (0 se encostam ou se sobrepõem).
+function gap(a, b) {
+  const dx = Math.max(0, a.min[0] - b.max[0], b.min[0] - a.max[0]);
+  const dz = Math.max(0, a.min[2] - b.max[2], b.min[2] - a.max[2]);
+  return Math.hypot(dx, dz);
+}
+
+test('pátio: sem frestas — obstáculos encostados ou com corredor de 2 m ou mais', () => {
+  const solid = buildMap('patio').boxes.filter((b) => b.max[1] > 0.35 && b.kind !== 'carTop');
+  const bad = [];
+  for (let i = 0; i < solid.length; i++) {
+    for (let j = i + 1; j < solid.length; j++) {
+      const d = gap(solid[i], solid[j]);
+      if (d > 0.01 && d < 2) {
+        const c = (b) => `${b.kind}(${((b.min[0] + b.max[0]) / 2).toFixed(1)},${((b.min[2] + b.max[2]) / 2).toFixed(1)})`;
+        bad.push(`${c(solid[i])}↔${c(solid[j])} ${d.toFixed(2)} m`);
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
+});
